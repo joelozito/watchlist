@@ -829,28 +829,36 @@ async function findOrCreateSheet() {
 }
 
 async function loadFromSheet() {
-  const data = await sheetsRequest('GET', `/${spreadsheetId}/values/Data!A1:F3`);
-  const rows = data.values || [];
+  // Read state columns (A-E) and OMDB key (F) in separate requests
+  // so sparse rows don't cause index misalignment
+  const [stateResp, keyResp] = await Promise.all([
+    sheetsRequest('GET', `/${spreadsheetId}/values/Data!A2:E2`),
+    sheetsRequest('GET', `/${spreadsheetId}/values/Data!F2`),
+  ]);
 
-  // rows[0] = header row, rows[1] = data row
-  const dataRow = rows[1];
+  const dataRow = (stateResp.values || [])[0];
+  const keyRow  = (keyResp.values  || [])[0];
 
   if (dataRow) {
     try { _state.overrides = JSON.parse(dataRow[1] || '{}'); } catch(e) {}
     try { _state.additions = JSON.parse(dataRow[2] || '[]'); } catch(e) {}
-    // Column F (index 5) holds the OMDB key — may be absent on older sheets
-    const sheetKey = dataRow[5] || '';
-    if (sheetKey) OMDB_KEY = sheetKey;
   } else {
-    // Sheet exists but has no data row — write one now
+    // No data row yet — create it
     await sheetsRequest('PUT', `/${spreadsheetId}/values/Data!A2:F2?valueInputOption=RAW`, {
       values: [['1', '{}', '[]', new Date().toISOString(), '1', '']],
     });
   }
 
-  // If the header row doesn't have column F yet, add it
-  const headerRow = rows[0] || [];
-  if (!headerRow[5]) {
+  // Read OMDB key from its own cell — immune to sparse row truncation
+  if (keyRow && keyRow[0]) {
+    OMDB_KEY = keyRow[0];
+    localStorage.setItem('wl_omdb_key', OMDB_KEY);
+  }
+
+  // Ensure header row has the omdb_key column label
+  const headerResp = await sheetsRequest('GET', `/${spreadsheetId}/values/Data!F1`);
+  const headerF = ((headerResp.values || [])[0] || [])[0];
+  if (!headerF) {
     await sheetsRequest('PUT', `/${spreadsheetId}/values/Data!F1?valueInputOption=RAW`, {
       values: [['omdb_key']],
     });
@@ -859,7 +867,6 @@ async function loadFromSheet() {
   // Cache to localStorage as backup
   localStorage.setItem('wl_overrides', JSON.stringify(_state.overrides));
   localStorage.setItem('wl_additions', JSON.stringify(_state.additions));
-  if (OMDB_KEY) localStorage.setItem('wl_omdb_key', OMDB_KEY);
 }
 
 async function pushToSheet() {
