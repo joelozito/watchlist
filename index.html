@@ -1093,6 +1093,10 @@ const SEC = {
 function encItem(item) { return encodeURIComponent(JSON.stringify(item)); }
 function decItem(s) { return JSON.parse(decodeURIComponent(s)); }
 
+// Store items by ID for safe onclick lookup — avoids quote escaping issues
+const itemRegistry = {};
+function registerItem(item) { itemRegistry[item.id] = item; return item.id; }
+
 // Lazy enrichment via IntersectionObserver
 let enrichObserver = null;
 const enrichQueue = new Set();
@@ -1139,7 +1143,7 @@ async function enrichCard(card) {
     badge.addEventListener('click', (e) => {
       e.stopPropagation();
       const item = getList().find(i => i.id === itemId);
-      if (item) openEditModal(encItem(item));
+      if (item) openEditModal(item.id);
     });
     card.appendChild(badge);
   }
@@ -1239,7 +1243,8 @@ function render() {
     items.forEach(item => {
       const omdbAttr = item.omdb ? `data-omdb="${item.omdb}"` : '';
       const jw = jwLink(item.t);
-      html += `<div class="card" data-id="${item.id}" data-enrich="${item.t.replace(/"/g,'&quot;')}" ${omdbAttr} onclick="openModal('${encItem(item)}')">
+      const rid = registerItem(item);
+      html += `<div class="card" data-id="${item.id}" data-enrich="${item.t.replace(/"/g,'&quot;')}" ${omdbAttr} onclick="openModal('${rid}')">
         <div class="card-poster-loading"><span>&#127916;</span></div>
         <div class="card-overlay"></div>
         <div class="card-body">
@@ -1260,8 +1265,9 @@ function render() {
 }
 
 // Detail modal
-async function openModal(enc) {
-  const item = decItem(enc);
+async function openModal(id) {
+  const item = itemRegistry[id] || getList().find(i => i.id === id);
+  if (!item) return;
   const mc = document.getElementById('modal-container');
   mc.innerHTML = `<div class="modal-overlay"><div class="modal"><p class="modal-loading">Loading...</p></div></div>`;
   const d = await fetchOMDB(item.omdb || item.t);
@@ -1300,8 +1306,8 @@ async function openModal(enc) {
           <div class="modal-plot">${plot}</div>
           <div class="modal-actions">
             ${seenBtn}
-            <button class="btn" onclick="openEditModal('${encItem(item)}')">Edit</button>
-            <button class="btn btn-danger" onclick="confirmDelete('${item.id}','${item.t.replace(/'/g,"\\'").replace(/"/g,'&quot;')}')">Delete</button>
+            <button class="btn" onclick="openEditModal('${item.id}')">Edit</button>
+            <button class="btn btn-danger" onclick="confirmDelete('${item.id}')">Delete</button>
           </div>
         </div>
       </div>
@@ -1313,7 +1319,9 @@ function toggleSeen(id, seen) {
   else applyOverride(id, {seen});
   closeModal(); render();
 }
-function confirmDelete(id, title) {
+function confirmDelete(id) {
+  const item = itemRegistry[id] || getList().find(i => i.id === id);
+  const title = item ? item.t : id;
   if (confirm(`Remove "${title}" from the list?`)) { deleteItem(id); closeModal(); render(); }
 }
 async function pickRandom() {
@@ -1355,7 +1363,7 @@ async function pickRandom() {
             </div>
           </div>
           <div class="picker-actions">
-            <button class="btn btn-primary" onclick="closeModal();openModal('${encItem(item)}')">View details</button>
+            <button class="btn btn-primary" onclick="closeModal();openModal('${item.id}')">View details</button>
             <button class="btn btn-seen" onclick="toggleSeen('${item.id}',true);closeModal()">Mark as seen ✓</button>
             <button class="btn" onclick="pickRandom()">Pick again &#8635;</button>
           </div>
@@ -1388,7 +1396,7 @@ function closeModal() { document.getElementById('modal-container').innerHTML = '
 
 // Add / Edit form
 function openAddModal() { showForm(null); }
-function openEditModal(enc) { showForm(decItem(enc)); }
+function openEditModal(id) { const item = itemRegistry[id] || getList().find(i => i.id === id); if (item) showForm(item); }
 function showForm(item) {
   const isEdit = !!item;
   const v = (f, def='') => item ? (item[f] ?? def) : def;
