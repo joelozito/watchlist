@@ -993,16 +993,17 @@ window.addEventListener('load', () => {
 });
 
 // OMDB
-async function fetchOMDB(title) {
+async function fetchOMDB(title, imdbId) {
   if (!OMDB_KEY) return null;
-  const key = title.toLowerCase();
-  if (omdbCache[key] !== undefined) return omdbCache[key];
+  const cacheKey = (imdbId || title).toLowerCase();
+  if (omdbCache[cacheKey] !== undefined) return omdbCache[cacheKey];
   try {
-    const r = await fetch(`https://www.omdbapi.com/?t=${encodeURIComponent(title)}&apikey=${OMDB_KEY}`);
+    const param = imdbId ? `i=${encodeURIComponent(imdbId)}` : `t=${encodeURIComponent(title)}`;
+    const r = await fetch(`https://www.omdbapi.com/?${param}&apikey=${OMDB_KEY}`);
     const d = await r.json();
-    omdbCache[key] = d.Response === 'True' ? d : null;
-  } catch(e) { omdbCache[key] = null; }
-  return omdbCache[key];
+    omdbCache[cacheKey] = d.Response === 'True' ? d : null;
+  } catch(e) { omdbCache[cacheKey] = null; }
+  return omdbCache[cacheKey];
 }
 
 // Multi-select filter state — Sets of active values
@@ -1128,7 +1129,7 @@ async function enrichCard(card) {
   const title = card.dataset.enrich;
   const omdbTitle = card.dataset.omdb || title;
   const itemId = card.dataset.id;
-  const data = await fetchOMDB(omdbTitle);
+  const data = await fetchOMDB(omdbTitle, card.dataset.imdbid || '');
 
   const genreEl = card.querySelector('.card-genre');
   const ratingEl = card.querySelector('.card-rating');
@@ -1242,9 +1243,10 @@ function render() {
     html += `<div class="section-head">${SEC[key]||key} (${items.length})</div><div class="grid">`;
     items.forEach(item => {
       const omdbAttr = item.omdb ? `data-omdb="${item.omdb}"` : '';
+      const imdbAttr = item.imdbId ? `data-imdbid="${item.imdbId}"` : '';
       const jw = jwLink(item.t);
       const rid = registerItem(item);
-      html += `<div class="card" data-id="${item.id}" data-enrich="${item.t.replace(/"/g,'&quot;')}" ${omdbAttr} onclick="openModal('${rid}')">
+      html += `<div class="card" data-id="${item.id}" data-enrich="${item.t.replace(/"/g,'&quot;')}" ${omdbAttr} ${imdbAttr} onclick="openModal('${rid}')">
         <div class="card-poster-loading"><span>&#127916;</span></div>
         <div class="card-overlay"></div>
         <div class="card-body">
@@ -1270,7 +1272,7 @@ async function openModal(id) {
   if (!item) return;
   const mc = document.getElementById('modal-container');
   mc.innerHTML = `<div class="modal-overlay"><div class="modal"><p class="modal-loading">Loading...</p></div></div>`;
-  const d = await fetchOMDB(item.omdb || item.t);
+  const d = await fetchOMDB(item.omdb || item.t, item.imdbId || '');
   const f = v => (v && v !== 'N/A') ? v : '';
   const hasPoster = d?.Poster && d.Poster !== 'N/A';
   const meta = [f(d?.Year), f(d?.Rated), f(d?.Runtime)].filter(Boolean).join(' · ');
@@ -1372,7 +1374,7 @@ async function pickRandom() {
     </div>`;
 
   // Load OMDB data to enrich the picker card
-  const d = await fetchOMDB(item.omdb || item.t);
+  const d = await fetchOMDB(item.omdb || item.t, item.imdbId || '');
   if (!d) return;
   const f = v => (v && v !== 'N/A') ? v : '';
   const meta = [f(d.Year), f(d.Rated), f(d.Runtime)].filter(Boolean).join(' · ');
@@ -1438,6 +1440,11 @@ function showForm(item) {
           <div style="font-size:11px;color:var(--text-dim);margin-top:4px">Leave blank to use the display title. Try the exact title from IMDb if the poster isn't loading.</div>
         </div>
         <div class="form-group">
+          <label>IMDb ID <span style="font-weight:400;color:var(--text-dim)">(overrides search title, most reliable)</span></label>
+          <input id="f-imdb" type="text" value="${v('imdbId').replace(/"/g,'&quot;')}" placeholder="e.g. tt0090021" style="font-family:monospace">
+          <div style="font-size:11px;color:var(--text-dim);margin-top:4px">Find on <a href="https://www.imdb.com" target="_blank" style="color:var(--gold)">imdb.com</a> — copy the tt... ID from the URL. Use this when title search finds the wrong film.</div>
+        </div>
+        <div class="form-group">
           <label>Options</label>
           <label class="form-check"><input type="checkbox" id="f-seen" ${chk('seen')}> Already seen</label>
           <label class="form-check"><input type="checkbox" id="f-holiday" ${chk('isHoliday')}> Holiday film</label>
@@ -1455,6 +1462,7 @@ function saveForm(editId) {
   const title = document.getElementById('f-title').value.trim();
   if (!title) { alert('Please enter a title.'); return; }
   const omdbOverride = document.getElementById('f-omdb').value.trim();
+  const imdbId = document.getElementById('f-imdb')?.value.trim() || '';
   const changes = {
     t: title,
     cat: document.getElementById('f-cat').value,
@@ -1463,18 +1471,19 @@ function saveForm(editId) {
     seen: document.getElementById('f-seen').checked,
     isHoliday: document.getElementById('f-holiday').checked,
     omdb: omdbOverride || undefined,
+    imdbId: imdbId || undefined,
   };
-  // Remove omdb key entirely if blank so base list value isn't shadowed
   if (!omdbOverride) delete changes.omdb;
+  if (!imdbId) delete changes.imdbId;
 
-  // Bust OMDB cache for old and new search titles so card re-fetches
+  // Bust OMDB cache for old and new search terms so card re-fetches
   if (editId) {
     const existing = getList().find(i => i.id === editId);
     if (existing) {
-      delete omdbCache[(existing.omdb || existing.t).toLowerCase()];
+      delete omdbCache[(existing.imdbId || existing.omdb || existing.t).toLowerCase()];
     }
   }
-  delete omdbCache[(omdbOverride || title).toLowerCase()];
+  delete omdbCache[(imdbId || omdbOverride || title).toLowerCase()];
 
   if (editId) {
     if (editId.startsWith('u_')) updateAddition(editId, changes);
