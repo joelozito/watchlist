@@ -744,7 +744,7 @@ async function saveOMDBKey() {
   if (!key) { alert('Please enter your OMDB API key.'); return; }
   OMDB_KEY = key;
   localStorage.setItem('wl_omdb_key', key);
-  await pushToSheet();
+  await saveOMDBKeyToSheet();
   closeModal();
   render();
 }
@@ -807,71 +807,70 @@ async function sheetExists(id) {
 }
 
 async function findOrCreateSheet() {
-  // Search Drive for existing sheet
   const res = await fetch(
     `https://www.googleapis.com/drive/v3/files?q=name='${SHEET_NAME}' and mimeType='application/vnd.google-apps.spreadsheet' and trashed=false&fields=files(id,name)`,
     { headers: { 'Authorization': 'Bearer ' + accessToken } }
   );
   const data = await res.json();
-  if (data.files && data.files.length > 0) return data.files[0].id;
-
-  // Create new spreadsheet with header + empty data row already in place
+  if (data.files && data.files.length > 0) {
+    const sid = data.files[0].id;
+    await ensureSettingsTab(sid);
+    return sid;
+  }
   const created = await sheetsRequest('POST', '', {
     properties: { title: SHEET_NAME },
-    sheets: [{ properties: { title: 'Data' } }],
+    sheets: [
+      { properties: { title: 'Data' } },
+      { properties: { title: 'Settings' } },
+    ],
   });
   const sid = created.spreadsheetId;
-  await sheetsRequest('PUT', `/${sid}/values/Data!A1:F2?valueInputOption=RAW`, {
+  await sheetsRequest('PUT', `/${sid}/values/Data!A1:E2?valueInputOption=RAW`, {
     values: [
-      ['id', 'overrides_json', 'additions_json', 'last_updated', 'version', 'omdb_key'],
-      ['1', '{}', '[]', new Date().toISOString(), '1', ''],
+      ['id', 'overrides_json', 'additions_json', 'last_updated', 'version'],
+      ['1', '{}', '[]', new Date().toISOString(), '1'],
     ],
+  });
+  await sheetsRequest('PUT', `/${sid}/values/Settings!A1:B1?valueInputOption=RAW`, {
+    values: [['omdb_key', '']],
   });
   return sid;
 }
 
+async function ensureSettingsTab(sid) {
+  try {
+    await sheetsRequest('GET', `/${sid}/values/Settings!A1`);
+  } catch(e) {
+    await sheetsRequest('POST', `/${sid}:batchUpdate`, {
+      requests: [{ addSheet: { properties: { title: 'Settings' } } }],
+    });
+    await sheetsRequest('PUT', `/${sid}/values/Settings!A1:B1?valueInputOption=RAW`, {
+      values: [['omdb_key', '']],
+    });
+  }
+}
+
 async function loadFromSheet() {
-  // Read state columns (A-E) and OMDB key (F) in separate requests
-  // so sparse rows don't cause index misalignment
+  await ensureSettingsTab(spreadsheetId);
   const [stateResp, keyResp] = await Promise.all([
     sheetsRequest('GET', `/${spreadsheetId}/values/Data!A2:E2`),
-    sheetsRequest('GET', `/${spreadsheetId}/values/Data!F2`),
+    sheetsRequest('GET', `/${spreadsheetId}/values/Settings!B1`),
   ]);
-
   const dataRow = (stateResp.values || [])[0];
-  const keyRow  = (keyResp.values  || [])[0];
-
+  const keyCell = ((keyResp.values || [])[0] || [])[0] || '';
   if (dataRow) {
     try { _state.overrides = JSON.parse(dataRow[1] || '{}'); } catch(e) {}
     try { _state.additions = JSON.parse(dataRow[2] || '[]'); } catch(e) {}
   } else {
-    // No data row yet — create it
-    await sheetsRequest('PUT', `/${spreadsheetId}/values/Data!A2:F2?valueInputOption=RAW`, {
-      values: [['1', '{}', '[]', new Date().toISOString(), '1', '']],
+    await sheetsRequest('PUT', `/${spreadsheetId}/values/Data!A2:E2?valueInputOption=RAW`, {
+      values: [['1', '{}', '[]', new Date().toISOString(), '1']],
     });
   }
-
-  // Read OMDB key from its own cell — immune to sparse row truncation
-  if (keyRow && keyRow[0]) {
-    const newKey = keyRow[0];
-    if (newKey !== OMDB_KEY) {
-      OMDB_KEY = newKey;
-      localStorage.setItem('wl_omdb_key', OMDB_KEY);
-      // Clear any null-cached results from before the key was known
-      Object.keys(omdbCache).forEach(k => { if (omdbCache[k] === null) delete omdbCache[k]; });
-    }
+  if (keyCell) {
+    OMDB_KEY = keyCell;
+    localStorage.setItem('wl_omdb_key', OMDB_KEY);
+    Object.keys(omdbCache).forEach(k => { if (omdbCache[k] === null) delete omdbCache[k]; });
   }
-
-  // Ensure header row has the omdb_key column label
-  const headerResp = await sheetsRequest('GET', `/${spreadsheetId}/values/Data!F1`);
-  const headerF = ((headerResp.values || [])[0] || [])[0];
-  if (!headerF) {
-    await sheetsRequest('PUT', `/${spreadsheetId}/values/Data!F1?valueInputOption=RAW`, {
-      values: [['omdb_key']],
-    });
-  }
-
-  // Cache to localStorage as backup
   localStorage.setItem('wl_overrides', JSON.stringify(_state.overrides));
   localStorage.setItem('wl_additions', JSON.stringify(_state.additions));
 }
@@ -880,20 +879,30 @@ async function pushToSheet() {
   if (!spreadsheetId || !accessToken) return;
   setSyncStatus('syncing', 'Saving...');
   try {
-    await sheetsRequest('PUT', `/${spreadsheetId}/values/Data!A2:F2?valueInputOption=RAW`, {
+    await sheetsRequest('PUT', `/${spreadsheetId}/values/Data!A2:E2?valueInputOption=RAW`, {
       values: [[
         '1',
         JSON.stringify(_state.overrides),
         JSON.stringify(_state.additions),
         new Date().toISOString(),
         '1',
-        OMDB_KEY || '',
       ]],
     });
     setSyncStatus('synced', 'Synced');
   } catch(e) {
     setSyncStatus('error', 'Sync error — check console');
     console.error('Sheet write failed:', e);
+  }
+}
+
+async function saveOMDBKeyToSheet() {
+  if (!spreadsheetId || !accessToken || !OMDB_KEY) return;
+  try {
+    await sheetsRequest('PUT', `/${spreadsheetId}/values/Settings!B1?valueInputOption=RAW`, {
+      values: [[OMDB_KEY]],
+    });
+  } catch(e) {
+    console.error('Failed to save OMDB key:', e);
   }
 }
 
