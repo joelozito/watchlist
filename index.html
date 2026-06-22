@@ -1,0 +1,1412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lozito Family Watchlist</title>
+<script src="https://accounts.google.com/gsi/client" defer></script>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:        #0f0f13;
+    --surface:   #1a1a24;
+    --surface2:  #22222f;
+    --border:    rgba(255,255,255,0.08);
+    --border2:   rgba(255,255,255,0.15);
+    --gold:      #f5a623;
+    --gold-dim:  #a06b10;
+    --text:      #e8e8f0;
+    --text-muted:#8888a0;
+    --text-dim:  #55556a;
+    --danger:    #e05555;
+  }
+
+  body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+  /* ── Header ── */
+  .page { max-width: 960px; margin: 0 auto; padding: 2rem 1.25rem; }
+  .page-header { display: flex; align-items: baseline; gap: 1rem; margin-bottom: 0.25rem; }
+  h1 { font-family: 'Bebas Neue', sans-serif; font-size: 42px; font-weight: 400; letter-spacing: 2px; color: var(--gold); line-height: 1; }
+  .subtitle { font-size: 12px; color: var(--text-muted); margin-bottom: 1.25rem; letter-spacing: 0.03em; }
+
+  /* ── Toolbar ── */
+  .toolbar { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 0.75rem; align-items: center; }
+  .toolbar input {
+    flex: 1; min-width: 180px; font-size: 13px; padding: 7px 14px;
+    border: 1px solid var(--border2); border-radius: 20px;
+    background: var(--surface); color: var(--text); outline: none; font-family: inherit;
+  }
+  .toolbar input::placeholder { color: var(--text-dim); }
+  .toolbar input:focus { border-color: var(--gold-dim); }
+
+  .btn-add {
+    font-size: 12px; padding: 7px 16px; border-radius: 20px;
+    border: 1px solid var(--gold); background: var(--gold); color: #000;
+    cursor: pointer; white-space: nowrap; font-weight: 600; font-family: inherit;
+  }
+  .btn-add:hover { background: #ffc04a; border-color: #ffc04a; }
+  .btn-clear {
+    font-size: 12px; padding: 7px 14px; border-radius: 20px;
+    border: 1px solid var(--border2); background: transparent; color: var(--text-muted);
+    cursor: pointer; white-space: nowrap; font-family: inherit;
+  }
+  .btn-clear:hover { border-color: var(--gold-dim); color: var(--text); }
+  .btn-google {
+    font-size: 12px; padding: 7px 14px; border-radius: 20px;
+    border: 1px solid var(--border2); background: var(--surface); color: var(--text);
+    cursor: pointer; white-space: nowrap; display: flex; align-items: center; gap: 8px; font-family: inherit;
+  }
+  .btn-google:hover { border-color: var(--border2); background: var(--surface2); }
+  .btn-google img { width: 15px; height: 15px; }
+  .btn-signout {
+    font-size: 11px; padding: 5px 12px; border-radius: 20px;
+    border: 1px solid var(--border); background: transparent; color: var(--text-muted);
+    cursor: pointer; font-family: inherit;
+  }
+  .btn-signout:hover { color: var(--danger); border-color: var(--danger); }
+
+  .sync-status { font-size: 11px; color: var(--text-muted); display: flex; align-items: center; gap: 5px; }
+  .sync-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--text-dim); flex-shrink: 0; transition: background 0.3s; }
+  .sync-dot.syncing { background: #f59e0b; }
+  .sync-dot.synced  { background: #22c55e; }
+  .sync-dot.error   { background: var(--danger); }
+
+  /* ── Filters ── */
+  .filters { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 0.6rem; }
+  .filter-btn {
+    font-size: 11px; padding: 4px 12px; border-radius: 20px;
+    border: 1px solid var(--border2); background: transparent; color: var(--text-muted);
+    cursor: pointer; transition: all 0.15s; white-space: nowrap; font-family: inherit; letter-spacing: 0.02em;
+  }
+  .filter-btn:hover:not(.active) { border-color: var(--gold-dim); color: var(--text); }
+  .filter-btn.active { background: var(--gold); color: #000; border-color: var(--gold); font-weight: 600; }
+
+  /* ── Stats ── */
+  .stats { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 1.5rem; }
+  .stat { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 8px 18px; text-align: center; }
+  .stat-num { font-family: 'Bebas Neue', sans-serif; font-size: 26px; color: var(--gold); line-height: 1; }
+  .stat-label { font-size: 10px; color: var(--text-muted); margin-top: 2px; letter-spacing: 0.05em; text-transform: uppercase; }
+
+  /* ── Section headers ── */
+  .section-head {
+    font-family: 'Bebas Neue', sans-serif; font-size: 20px; letter-spacing: 2px;
+    color: var(--text-muted); padding: 1.2rem 0 0.5rem;
+    border-top: 1px solid var(--border); margin-top: 0.5rem;
+  }
+  .section-head:first-of-type { border-top: none; margin-top: 0; }
+
+  /* ── Cards — poster style ── */
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-bottom: 0.5rem; }
+
+  .card {
+    position: relative; border-radius: 10px; overflow: hidden;
+    aspect-ratio: 2/3; cursor: pointer;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    transition: transform 0.2s, border-color 0.2s;
+  }
+  .card:hover { transform: translateY(-4px) scale(1.02); border-color: var(--gold); }
+
+  .card-poster-bg {
+    position: absolute; inset: 0; width: 100%; height: 100%;
+    object-fit: cover; display: block; transition: opacity 0.3s;
+  }
+  .card-poster-loading { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
+  .card-poster-loading span { font-size: 28px; opacity: 0.15; }
+  .badge-no-poster { position: absolute; top: 7px; left: 7px; font-size: 9px; padding: 2px 6px; border-radius: 4px; background: rgba(245,166,35,0.25); color: #f5a623; border: 1px solid rgba(245,166,35,0.4); font-weight: 600; letter-spacing: 0.04em; cursor: pointer; z-index: 3; }
+
+  /* Gradient overlay so text is always readable */
+  .card-overlay {
+    position: absolute; inset: 0;
+    background: linear-gradient(to top, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.4) 50%, rgba(0,0,0,0.05) 100%);
+  }
+  .card-body {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    padding: 10px 10px 8px;
+  }
+  .card-title { font-size: 12px; font-weight: 600; color: #fff; line-height: 1.3; margin-bottom: 3px; }
+  .card-genre { font-size: 10px; color: rgba(255,255,255,0.6); margin-bottom: 3px; }
+  .card-rating { font-size: 10px; color: var(--gold); font-weight: 600; }
+  .card-bottom { display: flex; align-items: center; justify-content: space-between; margin-top: 5px; flex-wrap: wrap; gap: 3px; }
+  .card-jw {
+    font-size: 9px; color: rgba(255,255,255,0.5); text-decoration: none;
+    padding: 2px 5px; border: 1px solid rgba(255,255,255,0.2); border-radius: 4px; white-space: nowrap;
+  }
+  .card-jw:hover { color: #fff; border-color: rgba(255,255,255,0.5); }
+
+  /* Badges */
+  .badge { display: inline-block; font-size: 9px; padding: 2px 6px; border-radius: 4px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; }
+  .badge-seen    { background: rgba(34,197,94,0.25);  color: #4ade80; }
+  .badge-family  { background: rgba(139,92,246,0.25); color: #a78bfa; }
+  .badge-adult   { background: rgba(59,130,246,0.25); color: #60a5fa; }
+  .badge-horror  { background: rgba(239,68,68,0.25);  color: #f87171; }
+  .badge-holiday { background: rgba(245,158,11,0.25); color: #fbbf24; }
+
+  /* ── Auth banner ── */
+  .auth-banner {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 16px; padding: 3rem 2rem; text-align: center; margin: 3rem auto; max-width: 420px;
+  }
+  .auth-banner h2 { font-family: 'Bebas Neue', sans-serif; font-size: 28px; letter-spacing: 2px; color: var(--gold); margin-bottom: 0.5rem; }
+  .auth-banner p { font-size: 13px; color: var(--text-muted); margin-bottom: 1.5rem; line-height: 1.6; }
+
+  /* ── Modal ── */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.75);
+    display: flex; align-items: flex-start; justify-content: center;
+    padding: 2rem 1rem; z-index: 1000; overflow-y: auto;
+  }
+  .modal {
+    background: var(--surface); border-radius: 14px; padding: 0;
+    max-width: 520px; width: 100%; position: relative;
+    border: 1px solid var(--border2); overflow: hidden;
+  }
+  .modal-close-btn {
+    position: absolute; top: 12px; right: 14px; font-size: 20px;
+    background: rgba(0,0,0,0.5); border: none; cursor: pointer;
+    color: #fff; line-height: 1; border-radius: 50%; width: 28px; height: 28px;
+    display: flex; align-items: center; justify-content: center; z-index: 2;
+  }
+  .modal-close-btn:hover { background: rgba(0,0,0,0.8); }
+
+  /* Big poster header */
+  .modal-hero {
+    position: relative; width: 100%; aspect-ratio: 16/9; background: var(--surface2); overflow: hidden;
+  }
+  .modal-hero img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .modal-hero-grad {
+    position: absolute; inset: 0;
+    background: linear-gradient(to top, var(--surface) 0%, transparent 60%);
+  }
+  .modal-hero-title {
+    position: absolute; bottom: 0; left: 0; right: 0; padding: 1rem 1.25rem 0.75rem;
+  }
+  .modal-hero-title h3 { font-family: 'Bebas Neue', sans-serif; font-size: 28px; letter-spacing: 1px; color: #fff; line-height: 1.1; }
+  .modal-hero-title .modal-meta { font-size: 12px; color: rgba(255,255,255,0.6); margin-top: 3px; }
+
+  .modal-body { padding: 0.75rem 1.25rem 1.25rem; }
+  .modal-info p { font-size: 12px; color: var(--text-muted); margin-bottom: 3px; line-height: 1.45; }
+  .modal-plot { font-size: 13px; color: var(--text); line-height: 1.65; margin: 10px 0; border-top: 1px solid var(--border); padding-top: 10px; }
+  .modal-ratings { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+  .rating-pill { font-size: 11px; padding: 3px 10px; border-radius: 10px; background: var(--surface2); color: var(--text); border: 1px solid var(--border2); }
+  .modal-loading { font-size: 13px; color: var(--text-muted); padding: 2rem 0; text-align: center; }
+  .modal-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; border-top: 1px solid var(--border); padding-top: 12px; }
+
+  /* Buttons */
+  .btn { font-size: 12px; padding: 6px 14px; border-radius: 7px; border: 1px solid var(--border2); background: transparent; color: var(--text); cursor: pointer; font-family: inherit; }
+  .btn:hover { border-color: var(--border2); background: var(--surface2); }
+  .btn-primary { background: var(--gold); color: #000; border-color: var(--gold); font-weight: 600; }
+  .btn-primary:hover { background: #ffc04a; }
+  .btn-danger { color: var(--danger); border-color: rgba(224,85,85,0.3); }
+  .btn-danger:hover { background: rgba(224,85,85,0.1); }
+  .btn-seen { background: rgba(34,197,94,0.15); color: #4ade80; border-color: rgba(34,197,94,0.3); }
+  .btn-seen:hover { background: rgba(34,197,94,0.25); }
+  .btn-unseen { background: rgba(245,158,11,0.15); color: #fbbf24; border-color: rgba(245,158,11,0.3); }
+  .btn-unseen:hover { background: rgba(245,158,11,0.25); }
+
+  /* Forms */
+  .form-group { margin-bottom: 12px; }
+  .form-group label { display: block; font-size: 11px; font-weight: 600; color: var(--text-muted); margin-bottom: 5px; letter-spacing: 0.05em; text-transform: uppercase; }
+  .form-group input, .form-group select {
+    width: 100%; font-size: 13px; padding: 8px 12px;
+    border: 1px solid var(--border2); border-radius: 7px;
+    background: var(--surface2); color: var(--text); outline: none; font-family: inherit;
+  }
+  .form-group input:focus, .form-group select:focus { border-color: var(--gold-dim); }
+  .form-group select option { background: var(--surface2); }
+  .form-row { display: flex; gap: 10px; }
+  .form-row .form-group { flex: 1; }
+  .form-check { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-muted); margin-top: 6px; cursor: pointer; }
+  .form-check input[type=checkbox] { width: 15px; height: 15px; cursor: pointer; accent-color: var(--gold); }
+  .form-modal-title { font-family: 'Bebas Neue', sans-serif; font-size: 22px; letter-spacing: 1px; color: var(--gold); margin-bottom: 1rem; }
+
+  .btn-random {
+    font-size: 12px; padding: 7px 14px; border-radius: 20px;
+    border: 1px solid rgba(245,166,35,0.5); background: transparent; color: var(--gold);
+    cursor: pointer; white-space: nowrap; font-family: inherit; letter-spacing: 0.03em;
+    transition: all 0.15s;
+  }
+  .btn-random:hover { background: rgba(245,166,35,0.1); border-color: var(--gold); }
+
+  /* Random picker modal */
+  .picker-card {
+    background: var(--surface2); border-radius: 12px; overflow: hidden;
+    margin-bottom: 1rem; display: flex; gap: 0;
+  }
+  .picker-poster { width: 120px; min-width: 120px; aspect-ratio: 2/3; object-fit: cover; }
+  .picker-poster-ph { width: 120px; min-width: 120px; aspect-ratio: 2/3; background: var(--surface); display: flex; align-items: center; justify-content: center; font-size: 36px; opacity: 0.15; }
+  .picker-info { padding: 1rem; flex: 1; display: flex; flex-direction: column; gap: 5px; }
+  .picker-title { font-family: 'Bebas Neue', sans-serif; font-size: 22px; letter-spacing: 1px; color: #fff; line-height: 1.1; }
+  .picker-meta { font-size: 12px; color: var(--text-muted); }
+  .picker-genre { font-size: 12px; color: var(--text-muted); }
+  .picker-rating { font-size: 12px; color: var(--gold); font-weight: 600; }
+  .picker-plot { font-size: 12px; color: var(--text-muted); line-height: 1.6; margin-top: 4px; }
+  .picker-pool { font-size: 11px; color: var(--text-dim); margin-bottom: 0.75rem; }
+  .picker-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .empty { color: var(--text-muted); font-size: 13px; padding: 3rem 0; text-align: center; }
+
+  @media (max-width: 500px) {
+    .grid { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
+    h1 { font-size: 32px; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="page-header">
+    <h1>Lozito Watchlist</h1>
+  </div>
+  <p class="subtitle" id="subtitle">Sign in to load your watchlist from Google Sheets.</p>
+  <div class="toolbar">
+    <input type="text" id="search" placeholder="Search titles..." oninput="onSearch()" style="display:none">
+    <button class="btn-clear" id="btn-clear" onclick="clearAll()" style="display:none">Clear</button>
+    <div class="sync-status" id="sync-status" style="display:none">
+      <span class="sync-dot" id="sync-dot"></span>
+      <span id="sync-label">Synced</span>
+    </div>
+    <div style="flex:1"></div>
+    <button class="btn-signout" id="btn-signout" onclick="signOut()" style="display:none">Sign out</button>
+    <button class="btn-signout" id="btn-settings" onclick="promptForOMDBKey()" style="display:none" title="Update OMDB API key">&#9881; API key</button>
+    <button class="btn-google" id="btn-google" onclick="signIn()">
+      <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt=""> Sign in with Google
+    </button>
+    <button class="btn-add" id="btn-add" onclick="openAddModal()" style="display:none">+ Add title</button>
+    <button class="btn-random" id="btn-random" onclick="pickRandom()" style="display:none" title="Pick a random title from current filters">&#9668; Pick one</button>
+  </div>
+  <div class="filters" id="filters" style="display:none">
+    <button class="filter-btn" data-f="to-watch" onclick="toggleFilter('to-watch')">To watch</button>
+    <button class="filter-btn" data-f="seen" onclick="toggleFilter('seen')">Seen</button>
+    <button class="filter-btn" data-f="family" onclick="toggleFilter('family')">Family</button>
+    <button class="filter-btn" data-f="adults" onclick="toggleFilter('adults')">Adults</button>
+    <button class="filter-btn" data-f="series" onclick="toggleFilter('series')">Series</button>
+    <button class="filter-btn" data-f="horror" onclick="toggleFilter('horror')">Horror</button>
+    <button class="filter-btn" data-f="holiday" onclick="toggleFilter('holiday')">Holiday</button>
+  </div>
+  <div class="filters" id="genre-filters" style="margin-top:-4px;margin-bottom:1rem;display:none"></div>
+  <div class="stats" id="stats"></div>
+  <div id="output">
+    <div class="auth-banner" id="auth-banner">
+      <h2>Lozito Family Watchlist</h2>
+      <p>Sign in with Google to load your watchlist.<br>Your data is stored in a Google Sheet in your own Drive.</p>
+      <button class="btn-google" onclick="signIn()" style="margin:0 auto">
+        <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt=""> Sign in with Google
+      </button>
+    </div>
+  </div>
+</div>
+<div id="modal-container"></div>
+
+<script>
+const omdbCache = {};
+let OMDB_KEY = null; // loaded from Google Sheet at runtime
+let searchTimeout = null;
+const genreMap = {};
+
+const BASE_LIST = [
+  {id:"b1",t:"Unforgotten",cat:"series",aud:"adults",note:"PBS procedural, for Jen"},
+  {id:"b2",t:"Grace",cat:"series",aud:"adults",note:"British detective show"},
+  {id:"b3",t:"Last Tango in Halifax",cat:"series",aud:"adults"},
+  {id:"b4",t:"June Farms",cat:"series",aud:"adults",note:"Event venue reality show, Prime Video"},
+  {id:"b5",t:"The AI Doc",cat:"movie",aud:"adults"},
+  {id:"b6",t:"Apex",cat:"movie",aud:"adults"},
+  {id:"b7",t:"Osiris",cat:"movie",aud:"adults",note:"Space action, Hulu"},
+  {id:"b8",t:"Hokum",cat:"movie",aud:"adults",note:"Adam Scott, Irish folk horror"},
+  {id:"b9",t:"My Father's Shadow",cat:"movie",aud:"adults",note:"Nigeria 1993"},
+  {id:"b10",t:"Buckaroo Banzai",cat:"movie",aud:"adults"},
+  {id:"b11",t:"The Fountain",cat:"movie",aud:"adults"},
+  {id:"b12",t:"Requiem for a Dream",cat:"movie",aud:"adults"},
+  {id:"b13",t:"Ash",cat:"movie",aud:"adults",note:"Sci-fi horror"},
+  {id:"b14",t:"Downhill",cat:"movie",aud:"adults",note:"Hulu, 2020"},
+  {id:"b15",t:"Heartstopper",cat:"series",aud:"adults",note:"Based on graphic novel, Kim recommends"},
+  {id:"b16",t:"Albert Brooks: Defending My Life",cat:"movie",aud:"adults",omdb:"Defending My Life"},
+  {id:"b17",t:"The Damned",cat:"movie",aud:"adults"},
+  {id:"b18",t:"Wicked Little Letters",cat:"movie",aud:"adults"},
+  {id:"b19",t:"Hunt for the Wilderpeople",cat:"movie",aud:"adults"},
+  {id:"b20",t:"All of Me",cat:"movie",aud:"adults"},
+  {id:"b21",t:"River",cat:"movie",aud:"adults",note:"2023"},
+  {id:"b22",t:"Immaculate",cat:"movie",aud:"adults"},
+  {id:"b23",t:"The Artifice Girl",cat:"movie",aud:"adults"},
+  {id:"b24",t:"The Outwaters",cat:"movie",aud:"horror"},
+  {id:"b25",t:"Handling the Undead",cat:"movie",aud:"horror"},
+  {id:"b26",t:"Dead and Buried",cat:"movie",aud:"horror"},
+  {id:"b27",t:"Self Reliance",cat:"movie",aud:"adults"},
+  {id:"b28",t:"May December",cat:"movie",aud:"adults"},
+  {id:"b29",t:"Saltburn",cat:"movie",aud:"adults"},
+  {id:"b30",t:"Double Blind",cat:"movie",aud:"horror"},
+  {id:"b31",t:"Monolith",cat:"movie",aud:"adults"},
+  {id:"b32",t:"Swiss Army Man",cat:"movie",aud:"adults"},
+  {id:"b33",t:"Janet Planet",cat:"movie",aud:"adults"},
+  {id:"b34",t:"Presence",cat:"movie",aud:"adults"},
+  {id:"b35",t:"Riot Women",cat:"series",aud:"adults"},
+  {id:"b36",t:"Wonder Man",cat:"series",aud:"adults"},
+  {id:"b37",t:"Fisk",cat:"series",aud:"adults"},
+  {id:"b38",t:"Strange New Worlds",cat:"series",aud:"adults",omdb:"Star Trek Strange New Worlds"},
+  {id:"b39",t:"Only Murders in the Building",cat:"series",aud:"adults"},
+  {id:"b40",t:"Abbott Elementary",cat:"series",aud:"adults"},
+  {id:"b41",t:"Z Nation",cat:"series",aud:"adults"},
+  {id:"b42",t:"Marianne",cat:"series",aud:"horror",note:"French, 1 season, 2019"},
+  {id:"b43",t:"The Big Door Prize",cat:"series",aud:"adults"},
+  {id:"b44",t:"Kaos",cat:"series",aud:"adults"},
+  {id:"b45",t:"Resident Alien",cat:"series",aud:"adults"},
+  {id:"b46",t:"Dead Pixels",cat:"series",aud:"adults"},
+  {id:"b47",t:"People of Earth",cat:"series",aud:"adults"},
+  {id:"b48",t:"The Afterparty",cat:"series",aud:"adults"},
+  {id:"b49",t:"Good Omens",cat:"series",aud:"adults"},
+  {id:"b50",t:"Black Mirror",cat:"series",aud:"adults"},
+  {id:"b51",t:"Lower Decks",cat:"series",aud:"adults",omdb:"Star Trek Lower Decks"},
+  {id:"b52",t:"Miracle Workers",cat:"series",aud:"adults"},
+  {id:"b53",t:"Trying",cat:"series",aud:"adults"},
+  {id:"b54",t:"Tales from the Loop",cat:"series",aud:"adults"},
+  {id:"b55",t:"Nightflyers",cat:"series",aud:"adults"},
+  {id:"b56",t:"The Leftovers",cat:"series",aud:"adults"},
+  {id:"b57",t:"Ozark",cat:"series",aud:"adults"},
+  {id:"b58",t:"Bloodline",cat:"series",aud:"adults"},
+  {id:"b59",t:"Fringe",cat:"series",aud:"adults"},
+  {id:"b60",t:"Travelers",cat:"series",aud:"adults"},
+  {id:"b61",t:"The Night Manager",cat:"series",aud:"adults"},
+  {id:"b62",t:"Running on Empty",cat:"movie",aud:"adults",note:"1988"},
+  {id:"b63",t:"Pump Up the Volume",cat:"movie",aud:"adults"},
+  {id:"b64",t:"Heathers",cat:"movie",aud:"adults"},
+  {id:"b65",t:"Best in Show",cat:"movie",aud:"adults",note:"Christopher Guest film"},
+  {id:"b66",t:"Relax I'm from the Future",cat:"movie",aud:"adults"},
+  {id:"b67",t:"Sleight",cat:"movie",aud:"adults"},
+  {id:"b68",t:"Lola",cat:"movie",aud:"adults"},
+  {id:"b69",t:"Jung_E",cat:"movie",aud:"adults",note:"Korean sci-fi"},
+  {id:"b70",t:"Jerry and Marge Go Large",cat:"movie",aud:"adults"},
+  {id:"b71",t:"M3GAN",cat:"movie",aud:"horror"},
+  {id:"b72",t:"The Quiet Earth",cat:"movie",aud:"adults"},
+  {id:"b73",t:"I'm Your Man",cat:"movie",aud:"adults"},
+  {id:"b74",t:"Ready or Not",cat:"movie",aud:"adults"},
+  {id:"b75",t:"Black Friday",cat:"movie",aud:"adults"},
+  {id:"b76",t:"Archive",cat:"movie",aud:"adults",note:"2020"},
+  {id:"b77",t:"Sound of My Voice",cat:"movie",aud:"adults"},
+  {id:"b78",t:"The Man from Earth",cat:"movie",aud:"adults"},
+  {id:"b79",t:"Spencer",cat:"movie",aud:"adults"},
+  {id:"b80",t:"Passing",cat:"movie",aud:"adults"},
+  {id:"b81",t:"Amadeus",cat:"movie",aud:"adults"},
+  {id:"b82",t:"You Are Not My Mother",cat:"movie",aud:"horror"},
+  {id:"b83",t:"Theater Camp",cat:"movie",aud:"adults"},
+  {id:"b84",t:"Tragedy Girls",cat:"movie",aud:"adults"},
+  {id:"b85",t:"Fever Dream",cat:"movie",aud:"adults"},
+  {id:"b86",t:"Level 16",cat:"movie",aud:"adults"},
+  {id:"b87",t:"The Wanting Mare",cat:"movie",aud:"adults"},
+  {id:"b88",t:"In the Earth",cat:"movie",aud:"horror"},
+  {id:"b89",t:"Relic",cat:"movie",aud:"horror"},
+  {id:"b90",t:"Shirley",cat:"movie",aud:"adults"},
+  {id:"b91",t:"Promising Young Woman",cat:"movie",aud:"adults"},
+  {id:"b92",t:"First Cow",cat:"movie",aud:"adults"},
+  {id:"b93",t:"Bad Education",cat:"movie",aud:"adults"},
+  {id:"b94",t:"His House",cat:"movie",aud:"horror"},
+  {id:"b95",t:"Miss Juneteenth",cat:"movie",aud:"adults"},
+  {id:"b96",t:"She Dies Tomorrow",cat:"movie",aud:"adults"},
+  {id:"b97",t:"Blindspotting",cat:"movie",aud:"adults"},
+  {id:"b98",t:"The Irishman",cat:"movie",aud:"adults"},
+  {id:"b99",t:"Roma",cat:"movie",aud:"adults"},
+  {id:"b100",t:"The Feast",cat:"movie",aud:"horror",note:"Wales"},
+  {id:"b101",t:"The Beast",cat:"movie",aud:"horror",note:"Spain"},
+  {id:"b102",t:"The Wasteland",cat:"movie",aud:"horror",note:"Spain"},
+  {id:"b103",t:"The Ideal Host",cat:"movie",aud:"horror"},
+  {id:"b104",t:"Marshmallow",cat:"movie",aud:"horror",note:"2026"},
+  {id:"b105",t:"Self Driver",cat:"movie",aud:"horror",note:"2026"},
+  {id:"b106",t:"In Our Blood",cat:"movie",aud:"horror",note:"2026"},
+  {id:"b107",t:"Deep Water",cat:"movie",aud:"adults"},
+  {id:"b108",t:"Romancing the Stone",cat:"movie",aud:"family"},
+  {id:"b109",t:"Manhattan Project",cat:"movie",aud:"family"},
+  {id:"b110",t:"Adventures of Baron Munchausen",cat:"movie",aud:"family"},
+  {id:"b111",t:"Legend of Billie Jean",cat:"movie",aud:"family"},
+  {id:"b112",t:"Big",cat:"movie",aud:"family",note:"1988"},
+  {id:"b113",t:"Cocoon",cat:"movie",aud:"family"},
+  {id:"b114",t:"Splash",cat:"movie",aud:"family"},
+  {id:"b115",t:"The Fifth Element",cat:"movie",aud:"family"},
+  {id:"b116",t:"Scott Pilgrim vs. the World",cat:"movie",aud:"family"},
+  {id:"b117",t:"Edge of Tomorrow",cat:"movie",aud:"family"},
+  {id:"b118",t:"Fletch",cat:"movie",aud:"family"},
+  {id:"b119",t:"Gotcha",cat:"movie",aud:"family"},
+  {id:"b120",t:"Love and Monsters",cat:"movie",aud:"family"},
+  {id:"b121",t:"Free Guy",cat:"movie",aud:"family",note:"Watch with Joseph"},
+  {id:"b122",t:"Ron's Gone Wrong",cat:"movie",aud:"family"},
+  {id:"b123",t:"The Adventures of Tintin",cat:"movie",aud:"family"},
+  {id:"b124",t:"Kubo and the Two Strings",cat:"movie",aud:"family"},
+  {id:"b125",t:"Castle in the Sky",cat:"movie",aud:"family",note:"Ghibli"},
+  {id:"b126",t:"Megamind",cat:"movie",aud:"family"},
+  {id:"b127",t:"Hugo",cat:"movie",aud:"family"},
+  {id:"b128",t:"The Borrowers",cat:"movie",aud:"family"},
+  {id:"b129",t:"One Crazy Summer",cat:"movie",aud:"family"},
+  {id:"b130",t:"The Breakfast Club",cat:"movie",aud:"family"},
+  {id:"b131",t:"Weird Science",cat:"movie",aud:"family"},
+  {id:"b132",t:"Just One of the Guys",cat:"movie",aud:"family"},
+  {id:"b133",t:"WarGames",cat:"movie",aud:"family"},
+  {id:"b134",t:"Cloak and Dagger",cat:"movie",aud:"family",note:"1984"},
+  {id:"b135",t:"Ladyhawke",cat:"movie",aud:"family"},
+  {id:"b136",t:"Stand by Me",cat:"movie",aud:"family"},
+  {id:"b137",t:"3 O'Clock High",cat:"movie",aud:"family"},
+  {id:"b138",t:"Short Circuit",cat:"movie",aud:"family"},
+  {id:"b139",t:"Caddyshack",cat:"movie",aud:"family"},
+  {id:"b140",t:"Top Gun",cat:"movie",aud:"family"},
+  {id:"b141",t:"Can't Buy Me Love",cat:"movie",aud:"family"},
+  {id:"b142",t:"Rad",cat:"movie",aud:"family"},
+  {id:"b143",t:"Grease",cat:"movie",aud:"family"},
+  {id:"b144",t:"Starman",cat:"movie",aud:"family"},
+  {id:"b145",t:"The Sure Thing",cat:"movie",aud:"family"},
+  {id:"b146",t:"Invasion of the Body Snatchers",cat:"movie",aud:"family"},
+  {id:"b147",t:"Rocky",cat:"movie",aud:"family"},
+  {id:"b148",t:"The Karate Kid",cat:"movie",aud:"family"},
+  {id:"b149",t:"Sneakers",cat:"movie",aud:"family"},
+  {id:"b150",t:"Eureka",cat:"series",aud:"family"},
+  {id:"b151",t:"Haven",cat:"series",aud:"family"},
+  {id:"b152",t:"The Librarians",cat:"series",aud:"family"},
+  {id:"b153",t:"Warehouse 13",cat:"series",aud:"family"},
+  {id:"b154",t:"Murder by Death",cat:"movie",aud:"family"},
+  {id:"b155",t:"Knives Out",cat:"movie",aud:"family"},
+  {id:"b156",t:"Enola Holmes",cat:"movie",aud:"family"},
+  {id:"b157",t:"Young Sherlock Holmes",cat:"movie",aud:"family"},
+  {id:"b158",t:"And Then There Were None",cat:"movie",aud:"family"},
+  {id:"b159",t:"Adventures in Babysitting",cat:"movie",aud:"family"},
+  {id:"b160",t:"Hot Shots",cat:"movie",aud:"family"},
+  {id:"b161",t:"Who Framed Roger Rabbit",cat:"movie",aud:"family"},
+  {id:"b162",t:"Monty Python and the Holy Grail",cat:"movie",aud:"family"},
+  {id:"b163",t:"Rush Hour",cat:"movie",aud:"family"},
+  {id:"b164",t:"National Treasure",cat:"movie",aud:"family"},
+  {id:"b165",t:"Holes",cat:"movie",aud:"family"},
+  {id:"b166",t:"Real Genius",cat:"movie",aud:"family"},
+  {id:"b167",t:"Attack the Block",cat:"movie",aud:"family"},
+  {id:"b168",t:"Scary Stories to Tell in the Dark",cat:"movie",aud:"family"},
+  {id:"b169",t:"Freaky",cat:"movie",aud:"family"},
+  {id:"b170",t:"The Sixth Sense",cat:"movie",aud:"family"},
+  {id:"b171",t:"Pan's Labyrinth",cat:"movie",aud:"family"},
+  {id:"b172",t:"Poltergeist",cat:"movie",aud:"family"},
+  {id:"b173",t:"A Quiet Place",cat:"movie",aud:"family"},
+  {id:"b174",t:"The Babadook",cat:"movie",aud:"horror"},
+  {id:"b175",t:"Scream",cat:"movie",aud:"adults"},
+  {id:"b176",t:"Bird Box",cat:"movie",aud:"adults"},
+  {id:"b177",t:"The Thing",cat:"movie",aud:"adults"},
+  {id:"b178",t:"The Fog",cat:"movie",aud:"adults"},
+  {id:"b179",t:"The Mist",cat:"movie",aud:"adults"},
+  {id:"b180",t:"Dungeons and Dragons Honor Among Thieves",cat:"movie",aud:"family",omdb:"Dungeons Dragons Honor Among Thieves"},
+  {id:"b181",t:"The Legend of Ochi",cat:"movie",aud:"family"},
+  {id:"b182",t:"Ne Zha",cat:"movie",aud:"family"},
+  {id:"b183",t:"UHF",cat:"movie",aud:"family"},
+  {id:"b184",t:"The Sting",cat:"movie",aud:"family"},
+  {id:"b185",t:"On Golden Pond",cat:"movie",aud:"family"},
+  {id:"b186",t:"Airplane!",cat:"movie",aud:"family"},
+  {id:"b187",t:"Teen Wolf",cat:"movie",aud:"family"},
+  {id:"b188",t:"The Shallows",cat:"movie",aud:"adults"},
+  {id:"b189",t:"Rear Window",cat:"movie",aud:"adults"},
+  {id:"b190",t:"The Lost Boys",cat:"movie",aud:"family"},
+  {id:"b191",t:"The Changeling",cat:"movie",aud:"horror",note:"1980"},
+  {id:"b192",t:"Field of Dreams",cat:"movie",aud:"family"},
+  {id:"b193",t:"Miracle",cat:"movie",aud:"family",note:"2004 hockey film"},
+  {id:"b194",t:"The Natural",cat:"movie",aud:"family"},
+  {id:"b195",t:"Major League",cat:"movie",aud:"family"},
+  {id:"b196",t:"Mighty Ducks",cat:"movie",aud:"family"},
+  {id:"b197",t:"Remember the Titans",cat:"movie",aud:"family"},
+  {id:"b198",t:"Rudy",cat:"movie",aud:"family"},
+  {id:"b199",t:"Little Giants",cat:"movie",aud:"family"},
+  {id:"b200",t:"Heaven Can Wait",cat:"movie",aud:"family"},
+  {id:"b201",t:"Jerry Maguire",cat:"movie",aud:"adults"},
+  {id:"b202",t:"Superman",cat:"movie",aud:"family",note:"1978"},
+  {id:"b203",t:"Ferris Bueller's Day Off",cat:"movie",aud:"family"},
+  {id:"b204",t:"The Poseidon Adventure",cat:"movie",aud:"family"},
+  {id:"b205",t:"Spider-Man Across the Spider-Verse",cat:"movie",aud:"family"},
+  {id:"b206",t:"Spider-Man No Way Home",cat:"movie",aud:"family"},
+  {id:"b207",t:"Bill and Ted's Excellent Adventure",cat:"movie",aud:"family"},
+  {id:"b208",t:"Mr. Holland's Opus",cat:"movie",aud:"family"},
+  {id:"b209",t:"My Penguin Friend",cat:"movie",aud:"family"},
+  {id:"b210",t:"Nacho Libre",cat:"movie",aud:"family"},
+  {id:"b211",t:"Eight Below",cat:"movie",aud:"family"},
+  {id:"b212",t:"Snow Dogs",cat:"movie",aud:"family"},
+  {id:"b213",t:"Star Trek Wrath of Khan",cat:"movie",aud:"family"},
+  {id:"b214",t:"Pirates of the Caribbean",cat:"movie",aud:"family"},
+  {id:"b215",t:"Explorers",cat:"movie",aud:"family",note:"1985"},
+  {id:"b216",t:"Bad News Bears",cat:"movie",aud:"family"},
+  {id:"b217",t:"Flow",cat:"movie",aud:"family",note:"2024"},
+  {id:"b218",t:"Tootsie",cat:"movie",aud:"family"},
+  {id:"b219",t:"Arrival",cat:"movie",aud:"family"},
+  {id:"b220",t:"The Pagemaster",cat:"movie",aud:"family"},
+  {id:"b221",t:"The Last Unicorn",cat:"movie",aud:"family"},
+  {id:"b222",t:"My Life as a Zucchini",cat:"movie",aud:"family"},
+  {id:"b223",t:"Willow",cat:"movie",aud:"family"},
+  {id:"b224",t:"The Last Starfighter",cat:"movie",aud:"family"},
+  {id:"b225",t:"Dragonslayer",cat:"movie",aud:"family"},
+  {id:"b226",t:"Forbidden Planet",cat:"movie",aud:"family"},
+  {id:"b227",t:"Song of the Sea",cat:"movie",aud:"family"},
+  {id:"b228",t:"Howl's Moving Castle",cat:"movie",aud:"family"},
+  {id:"b229",t:"Whale Rider",cat:"movie",aud:"family"},
+  {id:"b230",t:"The Amazing Maurice",cat:"movie",aud:"family"},
+  {id:"b231",t:"Searching for Bobby Fischer",cat:"movie",aud:"family"},
+  {id:"b232",t:"Queen of Katwe",cat:"movie",aud:"family"},
+  {id:"b233",t:"White Fang",cat:"movie",aud:"family"},
+  {id:"b234",t:"The Boy Who Harnessed the Wind",cat:"movie",aud:"family"},
+  {id:"b235",t:"Oni Thunder God's Tale",cat:"series",aud:"family",note:"Netflix"},
+  {id:"b236",t:"Theodosia",cat:"series",aud:"family",note:"HBO"},
+  {id:"b237",t:"Treasure Planet",cat:"movie",aud:"family"},
+  {id:"b238",t:"Once Upon a Time",cat:"series",aud:"family"},
+  {id:"b239",t:"Strange World",cat:"movie",aud:"family"},
+  {id:"b240",t:"Kids vs Aliens",cat:"movie",aud:"family"},
+  {id:"b241",t:"Soul",cat:"movie",aud:"family"},
+  {id:"b242",t:"Rise of the Guardians",cat:"movie",aud:"family"},
+  {id:"b243",t:"Kiki's Delivery Service",cat:"movie",aud:"family"},
+  {id:"b244",t:"Land Before Time",cat:"movie",aud:"family"},
+  {id:"b245",t:"The Man Who Invented Christmas",cat:"movie",aud:"family",isHoliday:true,note:"Dan Stevens as Dickens"},
+  {id:"b246",t:"A Boy Called Christmas",cat:"movie",aud:"family",isHoliday:true},
+  {id:"b247",t:"Christmas Chronicles",cat:"movie",aud:"family",isHoliday:true},
+  {id:"b248",t:"Candy Cane Lane",cat:"movie",aud:"family",isHoliday:true},
+  {id:"b249",t:"Arthur Christmas",cat:"movie",aud:"family",isHoliday:true},
+  {id:"b250",t:"Family Switch",cat:"movie",aud:"family",isHoliday:true},
+  {id:"b251",t:"Spirited",cat:"movie",aud:"adults",note:"Apple TV+"},
+  {id:"b252",t:"That Christmas",cat:"movie",aud:"family",isHoliday:true},
+  {id:"b253",t:"Jingle Jangle",cat:"movie",aud:"family",isHoliday:true},
+  {id:"b254",t:"Shaun the Sheep The Flight Before Christmas",cat:"movie",aud:"family",isHoliday:true},
+  {id:"b255",t:"Planes Trains and Automobiles",cat:"movie",aud:"family",isHoliday:true},
+  {id:"b256",t:"Addams Family Values",cat:"movie",aud:"family",isHoliday:true},
+  {id:"b257",t:"We Have a Ghost",cat:"movie",aud:"family",note:"Netflix, Halloween"},
+  {id:"b258",t:"Grimm",cat:"series",aud:"family"},
+  {id:"b259",t:"Bingo Long Traveling All-Stars and Motor Kings",cat:"movie",aud:"family",note:"James Earl Jones & Pryor, watch with Grandaddy"},
+  {id:"b260",t:"Transformers One",cat:"movie",aud:"family",seen:true},
+  {id:"b261",t:"Groundhog Day",cat:"movie",aud:"family",seen:true},
+  {id:"b262",t:"Close Encounters of the Third Kind",cat:"movie",aud:"family",seen:true},
+  {id:"b263",t:"Galaxy Quest",cat:"movie",aud:"family",seen:true},
+  {id:"b264",t:"A League of Their Own",cat:"movie",aud:"family",seen:true},
+  {id:"b265",t:"Chicken Run Dawn of the Nugget",cat:"movie",aud:"family",seen:true},
+  {id:"b266",t:"Hidden Figures",cat:"movie",aud:"family",seen:true},
+  {id:"b267",t:"The Martian",cat:"movie",aud:"family",seen:true},
+  {id:"b268",t:"Apollo 13",cat:"movie",aud:"family",seen:true},
+  {id:"b269",t:"Fantastic Voyage",cat:"movie",aud:"family",seen:true},
+  {id:"b270",t:"Innerspace",cat:"movie",aud:"family",seen:true},
+  {id:"b271",t:"Ghostbusters",cat:"movie",aud:"family",seen:true},
+  {id:"b272",t:"My Octopus Teacher",cat:"movie",aud:"family",seen:true},
+  {id:"b273",t:"Labyrinth",cat:"movie",aud:"family",seen:true},
+  {id:"b274",t:"Time Bandits",cat:"movie",aud:"family",seen:true},
+  {id:"b275",t:"Cool Runnings",cat:"movie",aud:"family",seen:true},
+  {id:"b276",t:"Fantastic Mr. Fox",cat:"movie",aud:"family",seen:true},
+  {id:"b277",t:"Toy Story 3",cat:"movie",aud:"family",seen:true},
+  {id:"b278",t:"Gremlins",cat:"movie",aud:"family",seen:true},
+  {id:"b279",t:"Pink Panther",cat:"movie",aud:"family",seen:true},
+  {id:"b280",t:"Duck Soup",cat:"movie",aud:"family",seen:true},
+  {id:"b281",t:"The Secret of Roan Inish",cat:"movie",aud:"family",seen:true},
+  {id:"b282",t:"Men in Black",cat:"movie",aud:"family",seen:true},
+  {id:"b283",t:"The Wild Robot",cat:"movie",aud:"family",seen:true},
+  {id:"b284",t:"Spaceballs",cat:"movie",aud:"family",seen:true},
+  {id:"b285",t:"War of the Worlds",cat:"movie",aud:"family",seen:true},
+  {id:"b286",t:"Nimona",cat:"movie",aud:"family",seen:true},
+  {id:"b287",t:"Super 8",cat:"movie",aud:"family",seen:true},
+  {id:"b288",t:"Space Jam",cat:"movie",aud:"family",seen:true},
+  {id:"b289",t:"Sonic the Hedgehog",cat:"movie",aud:"family",seen:true},
+  {id:"b290",t:"Pacific Rim",cat:"movie",aud:"family",seen:true},
+  {id:"b291",t:"Spirited Away",cat:"movie",aud:"family",seen:true},
+  {id:"b292",t:"Corpse Bride",cat:"movie",aud:"family",seen:true},
+  {id:"b293",t:"Hocus Pocus",cat:"movie",aud:"family",seen:true},
+  {id:"b294",t:"Coraline",cat:"movie",aud:"family",seen:true},
+  {id:"b295",t:"Hook",cat:"movie",aud:"family",seen:true},
+  {id:"b296",t:"Mrs. Doubtfire",cat:"movie",aud:"family",seen:true},
+  {id:"b297",t:"Nope",cat:"movie",aud:"adults",seen:true},
+  {id:"b298",t:"Prey",cat:"movie",aud:"adults",seen:true},
+  {id:"b299",t:"Predestination",cat:"movie",aud:"adults",seen:true},
+  {id:"b300",t:"Eighth Grade",cat:"movie",aud:"adults",seen:true},
+  {id:"b301",t:"Never Rarely Sometimes Always",cat:"movie",aud:"adults",seen:true},
+  {id:"b302",t:"CODA",cat:"movie",aud:"adults",seen:true},
+  {id:"b303",t:"Belfast",cat:"movie",aud:"adults",seen:true},
+  {id:"b304",t:"Nightmare Alley",cat:"movie",aud:"adults",seen:true},
+  {id:"b305",t:"Kimi",cat:"movie",aud:"adults",seen:true},
+  {id:"b306",t:"Don't Look Up",cat:"movie",aud:"adults",seen:true},
+  {id:"b307",t:"The Power of the Dog",cat:"movie",aud:"adults",seen:true},
+  {id:"b308",t:"Train to Busan",cat:"movie",aud:"adults",seen:true},
+  {id:"b309",t:"The Green Knight",cat:"movie",aud:"adults",seen:true},
+  {id:"b310",t:"Another Earth",cat:"movie",aud:"adults",seen:true},
+  {id:"b311",t:"Ghostbusters Afterlife",cat:"movie",aud:"adults",seen:true},
+  {id:"b312",t:"Eternals",cat:"movie",aud:"adults",seen:true},
+  {id:"b313",t:"The Vast of Night",cat:"movie",aud:"adults",seen:true},
+  {id:"b314",t:"Birds of Prey",cat:"movie",aud:"adults",seen:true},
+  {id:"b315",t:"Oxygen",cat:"movie",aud:"adults",seen:true},
+  {id:"b316",t:"Dune",cat:"movie",aud:"adults",seen:true},
+  {id:"b317",t:"Everything Everywhere All at Once",cat:"movie",aud:"adults",seen:true},
+  {id:"b318",t:"The Creator",cat:"movie",aud:"adults",seen:true},
+  {id:"b319",t:"Poor Things",cat:"movie",aud:"adults",seen:true},
+  {id:"b320",t:"The Holdovers",cat:"movie",aud:"adults",seen:true},
+  {id:"b321",t:"Oppenheimer",cat:"movie",aud:"adults",seen:true},
+  {id:"b322",t:"Zone of Interest",cat:"movie",aud:"adults",seen:true},
+  {id:"b323",t:"Furiosa",cat:"movie",aud:"adults",seen:true},
+  {id:"b324",t:"Godzilla Minus One",cat:"movie",aud:"adults",seen:true},
+  {id:"b325",t:"Alien Romulus",cat:"movie",aud:"adults",seen:true},
+  {id:"b326",t:"The Substance",cat:"movie",aud:"adults",seen:true},
+  {id:"b327",t:"Final Destination Bloodlines",cat:"movie",aud:"adults",seen:true},
+  {id:"b328",t:"Sinners",cat:"movie",aud:"adults",seen:true},
+  {id:"b329",t:"Companion",cat:"movie",aud:"adults",seen:true},
+  {id:"b330",t:"Andor",cat:"series",aud:"adults",seen:true},
+  {id:"b331",t:"The Innkeepers",cat:"movie",aud:"horror",seen:true},
+  {id:"b332",t:"Oddity",cat:"movie",aud:"horror",seen:true},
+  {id:"b333",t:"Smile 2",cat:"movie",aud:"horror",seen:true},
+];
+
+// ── Google Sheets Sync ──────────────────────────────────────────────────────
+const CLIENT_ID = '650305058013-1ip2vqpnj5g0il91iunqt3lgapqlsfng.apps.googleusercontent.com';
+const SCOPES = 'https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.file';
+const SHEET_NAME = 'Family Watchlist';
+
+let accessToken = null;
+let spreadsheetId = null;
+let _state = { overrides: {}, additions: [] };
+let syncTimer = null;
+let pendingSync = false;
+
+// ── Auth ────────────────────────────────────────────────────────────────────
+function signIn() {
+  if (typeof google === 'undefined' || !google.accounts) {
+    setTimeout(signIn, 300); return;
+  }
+  const client = google.accounts.oauth2.initTokenClient({
+    client_id: CLIENT_ID,
+    scope: SCOPES,
+    callback: async (resp) => {
+      if (resp.error) { setSyncStatus('error', 'Sign-in failed'); return; }
+      accessToken = resp.access_token;
+      localStorage.setItem('wl_token', accessToken);
+      await afterSignIn();
+    },
+  });
+  client.requestAccessToken();
+}
+
+function signOut() {
+  if (typeof google !== 'undefined' && google.accounts && accessToken) {
+    google.accounts.oauth2.revoke(accessToken);
+  }
+  accessToken = null;
+  spreadsheetId = null;
+  localStorage.removeItem('wl_token');
+  showAuthUI(false);
+}
+
+async function afterSignIn() {
+  showAuthUI(true);
+  setSyncStatus('syncing', 'Loading...');
+  spreadsheetId = localStorage.getItem('wl_sheet_id') || null;
+  if (spreadsheetId) {
+    const ok = await sheetExists(spreadsheetId);
+    if (!ok) spreadsheetId = null;
+  }
+  if (!spreadsheetId) {
+    spreadsheetId = await findOrCreateSheet();
+    localStorage.setItem('wl_sheet_id', spreadsheetId);
+  }
+  await loadFromSheet();
+  setSyncStatus('synced', 'Synced');
+
+  // If no OMDB key yet, prompt before rendering
+  if (!OMDB_KEY) {
+    promptForOMDBKey();
+  } else {
+    render();
+  }
+}
+
+function promptForOMDBKey() {
+  document.getElementById('modal-container').innerHTML = `
+    <div class="modal-overlay">
+      <div class="modal">
+        <div class="modal-body" style="padding:1.5rem">
+          <p class="form-modal-title">OMDB API Key</p>
+          <p style="font-size:13px;color:var(--text-muted);margin-bottom:1rem;line-height:1.6">
+            Enter your OMDB API key to load movie posters, ratings, and descriptions.
+            Your key will be stored securely in your Google Sheet — never in this file.
+          </p>
+          <p style="font-size:12px;color:var(--text-dim);margin-bottom:1rem">
+            Get a free key at <a href="https://www.omdbapi.com/apikey.aspx" target="_blank" style="color:var(--gold)">omdbapi.com</a>
+          </p>
+          <div class="form-group">
+            <label>API Key</label>
+            <input id="omdb-key-input" type="text" placeholder="e.g. abc12345" style="font-family:monospace">
+          </div>
+          <div class="modal-actions">
+            <button class="btn btn-primary" onclick="saveOMDBKey()">Save key</button>
+            <button class="btn" onclick="closeModal();render()">Skip for now</button>
+          </div>
+        </div>
+      </div>
+    </div>`;
+  setTimeout(() => document.getElementById('omdb-key-input')?.focus(), 50);
+}
+
+async function saveOMDBKey() {
+  const key = document.getElementById('omdb-key-input')?.value.trim();
+  if (!key) { alert('Please enter your OMDB API key.'); return; }
+  OMDB_KEY = key;
+  localStorage.setItem('wl_omdb_key', key);
+  await pushToSheet();
+  closeModal();
+  render();
+}
+
+function showAuthUI(signedIn) {
+  document.getElementById('btn-google').style.display = signedIn ? 'none' : '';
+  document.getElementById('btn-signout').style.display = signedIn ? '' : 'none';
+  document.getElementById('btn-settings').style.display = signedIn ? '' : 'none';
+  document.getElementById('btn-add').style.display = signedIn ? '' : 'none';
+  document.getElementById('btn-random').style.display = signedIn ? '' : 'none';
+  document.getElementById('search').style.display = signedIn ? '' : 'none';
+  document.getElementById('sync-status').style.display = signedIn ? '' : 'none';
+  document.getElementById('filters').style.display = signedIn ? '' : 'none';
+  document.getElementById('genre-filters').style.display = signedIn ? '' : 'none';
+  document.getElementById('auth-banner').style.display = signedIn ? 'none' : '';
+  document.getElementById('subtitle').textContent = signedIn
+    ? 'Click any title to see details, mark it seen, or edit it. Changes sync automatically.'
+    : 'Sign in to load your watchlist from Google Sheets.';
+}
+
+function setSyncStatus(state, label) {
+  const dot = document.getElementById('sync-dot');
+  const lbl = document.getElementById('sync-label');
+  if (dot) { dot.className = 'sync-dot ' + state; }
+  if (lbl) lbl.textContent = label;
+}
+
+// ── Sheets API helpers ───────────────────────────────────────────────────────
+async function sheetsRequest(method, path, body) {
+  const res = await fetch('https://sheets.googleapis.com/v4/spreadsheets' + path, {
+    method,
+    headers: {
+      'Authorization': 'Bearer ' + accessToken,
+      'Content-Type': 'application/json',
+    },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  if (!res.ok) { const t = await res.text(); throw new Error(t); }
+  return res.json();
+}
+
+async function driveRequest(method, path, body) {
+  const res = await fetch('https://www.googleapis.com/drive/v3' + path, {
+    method,
+    headers: {
+      'Authorization': 'Bearer ' + accessToken,
+      'Content-Type': 'application/json',
+    },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+async function sheetExists(id) {
+  try {
+    await sheetsRequest('GET', `/${id}?fields=spreadsheetId`);
+    return true;
+  } catch(e) { return false; }
+}
+
+async function findOrCreateSheet() {
+  // Search Drive for existing sheet
+  const res = await fetch(
+    `https://www.googleapis.com/drive/v3/files?q=name='${SHEET_NAME}' and mimeType='application/vnd.google-apps.spreadsheet' and trashed=false&fields=files(id,name)`,
+    { headers: { 'Authorization': 'Bearer ' + accessToken } }
+  );
+  const data = await res.json();
+  if (data.files && data.files.length > 0) return data.files[0].id;
+
+  // Create new spreadsheet
+  const created = await sheetsRequest('POST', '', {
+    properties: { title: SHEET_NAME },
+    sheets: [{ properties: { title: 'Data' } }],
+  });
+  const sid = created.spreadsheetId;
+
+  // Write header row
+  await sheetsRequest('PUT', `/${sid}/values/Data!A1:F1?valueInputOption=RAW`, {
+    values: [['id', 'overrides_json', 'additions_json', 'last_updated', 'version', 'omdb_key']],
+  });
+  // Write initial empty data row
+  await sheetsRequest('PUT', `/${sid}/values/Data!A2:F2?valueInputOption=RAW`, {
+    values: [['1', '{}', '[]', new Date().toISOString(), '1', '']],
+  });
+  return sid;
+}
+
+async function loadFromSheet() {
+  try {
+    const data = await sheetsRequest('GET', `/${spreadsheetId}/values/Data!A2:F2`);
+    const row = data.values && data.values[0];
+    if (row && row[1] !== undefined) {
+      _state = {
+        overrides: JSON.parse(row[1] || '{}'),
+        additions: JSON.parse(row[2] || '[]'),
+      };
+      localStorage.setItem('wl_overrides', row[1]);
+      localStorage.setItem('wl_additions', row[2]);
+      // Load OMDB key from col F (index 5)
+      if (row[5]) {
+        OMDB_KEY = row[5];
+        localStorage.setItem('wl_omdb_key', OMDB_KEY);
+      }
+    }
+  } catch(e) {
+    _state = {
+      overrides: JSON.parse(localStorage.getItem('wl_overrides') || '{}'),
+      additions: JSON.parse(localStorage.getItem('wl_additions') || '[]'),
+    };
+    OMDB_KEY = localStorage.getItem('wl_omdb_key') || null;
+  }
+}
+
+async function pushToSheet() {
+  if (!spreadsheetId || !accessToken) return;
+  setSyncStatus('syncing', 'Saving...');
+  try {
+    await sheetsRequest('PUT', `/${spreadsheetId}/values/Data!A2:F2?valueInputOption=RAW`, {
+      values: [[
+        '1',
+        JSON.stringify(_state.overrides),
+        JSON.stringify(_state.additions),
+        new Date().toISOString(),
+        '1',
+        OMDB_KEY || '',
+      ]],
+    });
+    setSyncStatus('synced', 'Synced');
+  } catch(e) {
+    setSyncStatus('error', 'Sync failed');
+  }
+}
+
+// Debounce sheet writes — batch rapid changes into one write
+function scheduleSyncToSheet() {
+  clearTimeout(syncTimer);
+  syncTimer = setTimeout(pushToSheet, 1200);
+}
+
+// ── State helpers ────────────────────────────────────────────────────────────
+function loadState() { return _state; }
+
+function saveState(s) {
+  _state = s;
+  localStorage.setItem('wl_overrides', JSON.stringify(s.overrides));
+  localStorage.setItem('wl_additions', JSON.stringify(s.additions));
+  scheduleSyncToSheet();
+}
+
+function getList() {
+  const s = loadState();
+  const base = BASE_LIST
+    .map(item => s.overrides[item.id] ? {...item, ...s.overrides[item.id]} : item)
+    .filter(item => !s.overrides[item.id]?.deleted);
+  return [...base, ...s.additions];
+}
+function applyOverride(id, changes) {
+  const s = loadState();
+  s.overrides[id] = {...(s.overrides[id]||{}), ...changes};
+  saveState(s);
+}
+function applyAddition(item) {
+  const s = loadState();
+  s.additions.push(item);
+  saveState(s);
+}
+function updateAddition(id, changes) {
+  const s = loadState();
+  const i = s.additions.findIndex(a => a.id === id);
+  if (i !== -1) s.additions[i] = {...s.additions[i], ...changes};
+  saveState(s);
+}
+function deleteItem(id) {
+  const s = loadState();
+  if (id.startsWith('u_')) s.additions = s.additions.filter(a => a.id !== id);
+  else s.overrides[id] = {...(s.overrides[id]||{}), deleted:true};
+  saveState(s);
+}
+
+// Try to restore session from localStorage token on load
+window.addEventListener('load', () => {
+  const saved = localStorage.getItem('wl_token');
+  if (saved) {
+    accessToken = saved;
+    afterSignIn().catch(() => {
+      // Token expired — show sign-in
+      accessToken = null;
+      localStorage.removeItem('wl_token');
+      showAuthUI(false);
+    });
+  }
+});
+
+// OMDB
+async function fetchOMDB(title) {
+  if (!OMDB_KEY) return null;
+  const key = title.toLowerCase();
+  if (omdbCache[key] !== undefined) return omdbCache[key];
+  try {
+    const r = await fetch(`https://www.omdbapi.com/?t=${encodeURIComponent(title)}&apikey=${OMDB_KEY}`);
+    const d = await r.json();
+    omdbCache[key] = d.Response === 'True' ? d : null;
+  } catch(e) { omdbCache[key] = null; }
+  return omdbCache[key];
+}
+
+// Multi-select filter state — Sets of active values
+// activeFilters: Set of audience/status tags ('family','adults','horror','seen','to-watch','series','holiday')
+// activeGenres:  Set of genre strings
+let activeFilters = new Set();
+let activeGenres = new Set();
+
+function toggleFilter(f) {
+  if (activeFilters.has(f)) activeFilters.delete(f);
+  else activeFilters.add(f);
+  syncFilterButtons();
+  updateClearBtn();
+  render();
+}
+function toggleGenre(g) {
+  if (activeGenres.has(g)) activeGenres.delete(g);
+  else activeGenres.add(g);
+  refreshGenreFilters();
+  updateClearBtn();
+  render();
+}
+function clearAll() {
+  activeFilters.clear();
+  activeGenres.clear();
+  document.getElementById('search').value = '';
+  syncFilterButtons();
+  refreshGenreFilters();
+  updateClearBtn();
+  render();
+}
+function syncFilterButtons() {
+  document.querySelectorAll('#filters .filter-btn').forEach(b => {
+    b.classList.toggle('active', activeFilters.has(b.dataset.f));
+  });
+}
+function updateClearBtn() {
+  const q = document.getElementById('search').value.trim();
+  const active = q || activeFilters.size > 0 || activeGenres.size > 0;
+  document.getElementById('btn-clear').style.display = active ? '' : 'none';
+}
+function onSearch() {
+  clearTimeout(searchTimeout);
+  searchTimeout = setTimeout(() => { updateClearBtn(); render(); }, 280);
+}
+
+// An item passes if it satisfies ALL active filter groups (AND between groups, OR within each group)
+// Group 1: audience/status filters
+// Group 2: genre filters
+function itemPassesFilters(item) {
+  // Audience/status: if any filters active, item must match at least one
+  if (activeFilters.size > 0) {
+    let pass = false;
+    if (activeFilters.has('seen') && item.seen) pass = true;
+    if (activeFilters.has('to-watch') && !item.seen) pass = true;
+    if (activeFilters.has('family') && item.aud === 'family' && !item.seen) pass = true;
+    if (activeFilters.has('adults') && item.aud === 'adults' && !item.seen) pass = true;
+    if (activeFilters.has('horror') && item.aud === 'horror' && !item.seen) pass = true;
+    if (activeFilters.has('series') && item.cat === 'series' && !item.seen) pass = true;
+    if (activeFilters.has('holiday') && item.isHoliday && !item.seen) pass = true;
+    if (!pass) return false;
+  }
+  // Genre: if any genres active, item must have a matching genre in genreMap
+  if (activeGenres.size > 0) {
+    const itemGenres = (genreMap[item.id] || '').split(',').map(g => g.trim()).filter(Boolean);
+    if (!itemGenres.some(g => activeGenres.has(g))) return false;
+  }
+  return true;
+}
+function matches(item, q) {
+  if (q && !item.t.toLowerCase().includes(q) && !(item.note||'').toLowerCase().includes(q)) return false;
+  return itemPassesFilters(item);
+}
+function badgeHTML(item) {
+  if (item.seen) return '<span class="badge badge-seen">Seen</span>';
+  if (item.isHoliday) return '<span class="badge badge-holiday">Holiday</span>';
+  if (item.aud === 'horror') return '<span class="badge badge-horror">Horror</span>';
+  if (item.aud === 'family') return '<span class="badge badge-family">Family</span>';
+  if (item.aud === 'adults') return '<span class="badge badge-adult">Adults</span>';
+  return '';
+}
+const SEC = {
+  'family-movie':'Family movies','family-series':'Family series',
+  'adults-movie':'Adults movies','adults-series':'Adults series',
+  'horror-movie':'Horror','horror-series':'Horror series',
+  'holiday-movie':'Holiday','seen-movie':'Movies seen','seen-series':'Series seen'
+};
+function encItem(item) { return encodeURIComponent(JSON.stringify(item)); }
+function decItem(s) { return JSON.parse(decodeURIComponent(s)); }
+
+// Lazy enrichment via IntersectionObserver
+let enrichObserver = null;
+const enrichQueue = new Set();
+
+function startObserver() {
+  if (enrichObserver) enrichObserver.disconnect();
+  enrichObserver = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        const card = entry.target;
+        enrichObserver.unobserve(card);
+        enrichCard(card);
+      }
+    });
+  }, { rootMargin: '200px' });
+  document.querySelectorAll('.card[data-enrich]').forEach(c => enrichObserver.observe(c));
+}
+
+async function enrichCard(card) {
+  const title = card.dataset.enrich;
+  const omdbTitle = card.dataset.omdb || title;
+  const itemId = card.dataset.id;
+  const data = await fetchOMDB(omdbTitle);
+
+  const genreEl = card.querySelector('.card-genre');
+  const ratingEl = card.querySelector('.card-rating');
+
+  // Helper: add a "Fix poster" badge that opens the edit form
+  function addNoPosterBadge() {
+    if (card.querySelector('.badge-no-poster')) return;
+    const badge = document.createElement('span');
+    badge.className = 'badge-no-poster';
+    badge.title = 'Click to fix OMDB search title';
+    badge.textContent = 'Fix poster';
+    badge.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const item = getList().find(i => i.id === itemId);
+      if (item) openEditModal(encItem(item));
+    });
+    card.appendChild(badge);
+  }
+
+  if (!data) {
+    // OMDB returned nothing — flag it
+    if (genreEl) genreEl.textContent = '';
+    const loader = card.querySelector('.card-poster-loading');
+    if (loader) loader.innerHTML = '<span style="font-size:32px;opacity:0.12">&#127916;</span>';
+    addNoPosterBadge();
+    return;
+  }
+
+  // Store all genres (comma-separated) for multi-genre filtering
+  const allGenres = (data.Genre && data.Genre !== 'N/A') ? data.Genre : '';
+  const displayGenre = allGenres ? allGenres.split(',')[0].trim() : '';
+  const rating = (data.imdbRating && data.imdbRating !== 'N/A') ? data.imdbRating : '';
+  const rated = (data.Rated && data.Rated !== 'N/A') ? data.Rated : '';
+
+  if (allGenres && itemId) {
+    genreMap[itemId] = allGenres;
+    refreshGenreFilters();
+  }
+
+  // Inject poster image into card
+  if (data.Poster && data.Poster !== 'N/A') {
+    const loader = card.querySelector('.card-poster-loading');
+    if (loader) {
+      const img = document.createElement('img');
+      img.className = 'card-poster-bg';
+      img.src = data.Poster;
+      img.alt = '';
+      card.insertBefore(img, loader);
+      loader.remove();
+    }
+  } else {
+    // OMDB found the title but has no poster image
+    const loader = card.querySelector('.card-poster-loading');
+    if (loader) loader.innerHTML = '<span style="font-size:32px;opacity:0.12">&#127916;</span>';
+    addNoPosterBadge();
+  }
+
+  if (genreEl) genreEl.textContent = displayGenre;
+  if (ratingEl) {
+    const parts = [];
+    if (rating) parts.push('★ ' + rating);
+    if (rated) parts.push(rated);
+    ratingEl.textContent = parts.join(' · ');
+  }
+}
+
+function refreshGenreFilters() {
+  // Count occurrences of each individual genre across all items
+  const counts = {};
+  const list = getList();
+  list.forEach(item => {
+    const gs = genreMap[item.id];
+    if (!gs) return;
+    gs.split(',').map(g => g.trim()).filter(Boolean).forEach(g => {
+      counts[g] = (counts[g] || 0) + 1;
+    });
+  });
+  const sorted = Object.entries(counts).sort((a,b) => b[1]-a[1]).map(e => e[0]);
+  const bar = document.getElementById('genre-filters');
+  if (!bar) return;
+  bar.innerHTML = sorted.map(g =>
+    `<button class="filter-btn${activeGenres.has(g)?' active':''}" data-g="${g}" onclick="toggleGenre('${g.replace(/'/g,"\\'")}')">${g}</button>`
+  ).join('');
+}
+
+function jwLink(title) {
+  const q = encodeURIComponent(title);
+  return `https://www.justwatch.com/us/search?q=${q}`;
+}
+
+function render() {
+  const q = document.getElementById('search').value.toLowerCase().trim();
+  const list = getList();
+  const filtered = list.filter(i => matches(i, q));
+  const buckets = {};
+  filtered.forEach(item => {
+    const key = item.seen ? 'seen-'+item.cat : item.isHoliday ? 'holiday-movie' : item.aud+'-'+item.cat;
+    (buckets[key] = buckets[key]||[]).push(item);
+  });
+  const order = ['family-movie','family-series','adults-movie','adults-series','horror-movie','holiday-movie','seen-movie','seen-series'];
+  document.getElementById('stats').innerHTML = `
+    <div class="stat"><div class="stat-num">${filtered.length}</div><div class="stat-label">Showing</div></div>
+    <div class="stat"><div class="stat-num">${filtered.filter(i=>!i.seen).length}</div><div class="stat-label">To watch</div></div>
+    <div class="stat"><div class="stat-num">${filtered.filter(i=>i.seen).length}</div><div class="stat-label">Seen</div></div>
+  `;
+  if (!filtered.length) { document.getElementById('output').innerHTML = '<div class="empty">No results found.</div>'; return; }
+  let html = '';
+  order.forEach(key => {
+    if (!buckets[key]?.length) return;
+    const items = [...buckets[key]].sort((a,b) => a.t.localeCompare(b.t));
+    html += `<div class="section-head">${SEC[key]||key} (${items.length})</div><div class="grid">`;
+    items.forEach(item => {
+      const omdbAttr = item.omdb ? `data-omdb="${item.omdb}"` : '';
+      const jw = jwLink(item.t);
+      html += `<div class="card" data-id="${item.id}" data-enrich="${item.t.replace(/"/g,'&quot;')}" ${omdbAttr} onclick="openModal('${encItem(item)}')">
+        <div class="card-poster-loading"><span>&#127916;</span></div>
+        <div class="card-overlay"></div>
+        <div class="card-body">
+          <div class="card-title">${item.t}</div>
+          <div class="card-genre"></div>
+          <div class="card-rating"></div>
+          <div class="card-bottom">
+            <div>${badgeHTML(item)}</div>
+            <a class="card-jw" href="${jw}" target="_blank" onclick="event.stopPropagation()">Where to watch</a>
+          </div>
+        </div>
+      </div>`;
+    });
+    html += '</div>';
+  });
+  document.getElementById('output').innerHTML = html;
+  startObserver();
+}
+
+// Detail modal
+async function openModal(enc) {
+  const item = decItem(enc);
+  const mc = document.getElementById('modal-container');
+  mc.innerHTML = `<div class="modal-overlay"><div class="modal"><p class="modal-loading">Loading...</p></div></div>`;
+  const d = await fetchOMDB(item.omdb || item.t);
+  const f = v => (v && v !== 'N/A') ? v : '';
+  const hasPoster = d?.Poster && d.Poster !== 'N/A';
+  const meta = [f(d?.Year), f(d?.Rated), f(d?.Runtime)].filter(Boolean).join(' · ');
+  const ratings = (d?.Ratings||[]).map(r =>
+    `<span class="rating-pill">${r.Source.replace('Internet Movie Database','IMDb').replace('Rotten Tomatoes','RT').replace('Metacritic','MC')}: ${r.Value}</span>`
+  ).join('');
+  const plot = f(d?.Plot) || 'No description available.';
+  const seenBtn = item.seen
+    ? `<button class="btn btn-unseen" onclick="toggleSeen('${item.id}',false)">Mark as not seen</button>`
+    : `<button class="btn btn-seen" onclick="toggleSeen('${item.id}',true)">Mark as seen ✓</button>`;
+
+  mc.innerHTML = `
+    <div class="modal-overlay" onclick="if(event.target===this)closeModal()">
+      <div class="modal">
+        <button class="modal-close-btn" onclick="closeModal()" aria-label="Close">&times;</button>
+        <div class="modal-hero">
+          ${hasPoster ? `<img src="${d.Poster}" alt="Poster">` : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:48px;opacity:0.1">&#127916;</div>`}
+          <div class="modal-hero-grad"></div>
+          <div class="modal-hero-title">
+            <h3>${item.t}</h3>
+            ${meta ? `<div class="modal-meta">${meta}</div>` : ''}
+          </div>
+        </div>
+        <div class="modal-body">
+          <div class="modal-info">
+            ${f(d?.Genre) ? `<p>${d.Genre}</p>` : ''}
+            ${f(d?.Director) ? `<p>Dir: ${d.Director}</p>` : ''}
+            ${f(d?.Actors) ? `<p style="color:var(--text-dim)">${d.Actors}</p>` : ''}
+            ${item.note ? `<p style="font-style:italic;color:var(--text-muted)">${item.note}</p>` : ''}
+            <div style="margin-top:8px">${badgeHTML(item)}</div>
+          </div>
+          ${ratings ? `<div class="modal-ratings" style="margin-top:10px">${ratings}</div>` : ''}
+          <div class="modal-plot">${plot}</div>
+          <div class="modal-actions">
+            ${seenBtn}
+            <button class="btn" onclick="openEditModal('${encItem(item)}')">Edit</button>
+            <button class="btn btn-danger" onclick="confirmDelete('${item.id}','${item.t.replace(/'/g,"\\'").replace(/"/g,'&quot;')}')">Delete</button>
+          </div>
+        </div>
+      </div>
+    </div>`;
+}
+
+function toggleSeen(id, seen) {
+  if (id.startsWith('u_')) updateAddition(id, {seen});
+  else applyOverride(id, {seen});
+  closeModal(); render();
+}
+function confirmDelete(id, title) {
+  if (confirm(`Remove "${title}" from the list?`)) { deleteItem(id); closeModal(); render(); }
+}
+async function pickRandom() {
+  const q = document.getElementById('search').value.toLowerCase().trim();
+  const pool = getList().filter(i => !i.seen && matches(i, q));
+  if (!pool.length) {
+    const mc = document.getElementById('modal-container');
+    mc.innerHTML = `
+      <div class="modal-overlay" onclick="if(event.target===this)closeModal()">
+        <div class="modal">
+          <button class="modal-close-btn" onclick="closeModal()">&times;</button>
+          <div class="modal-body" style="padding:2rem;text-align:center">
+            <div style="font-size:36px;margin-bottom:1rem">&#127916;</div>
+            <p style="color:var(--text-muted)">No unwatched titles match the current filters.</p>
+          </div>
+        </div>
+      </div>`;
+    return;
+  }
+
+  const item = pool[Math.floor(Math.random() * pool.length)];
+  const mc = document.getElementById('modal-container');
+  mc.innerHTML = `
+    <div class="modal-overlay" onclick="if(event.target===this)closeModal()">
+      <div class="modal">
+        <button class="modal-close-btn" onclick="closeModal()">&times;</button>
+        <div class="modal-body" style="padding:1.25rem">
+          <div style="font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:0.75rem">
+            Tonight's pick &mdash; from ${pool.length} title${pool.length !== 1 ? 's' : ''}
+          </div>
+          <div class="picker-card" id="picker-card">
+            <div class="picker-poster-ph">&#127916;</div>
+            <div class="picker-info">
+              <div class="picker-title">${item.t}</div>
+              <div class="picker-meta" id="picker-meta"></div>
+              <div class="picker-genre" id="picker-genre"></div>
+              <div class="picker-rating" id="picker-rating"></div>
+              <div class="picker-plot" id="picker-plot"></div>
+            </div>
+          </div>
+          <div class="picker-actions">
+            <button class="btn btn-primary" onclick="closeModal();openModal('${encItem(item)}')">View details</button>
+            <button class="btn btn-seen" onclick="toggleSeen('${item.id}',true);closeModal()">Mark as seen ✓</button>
+            <button class="btn" onclick="pickRandom()">Pick again &#8635;</button>
+          </div>
+        </div>
+      </div>
+    </div>`;
+
+  // Load OMDB data to enrich the picker card
+  const d = await fetchOMDB(item.omdb || item.t);
+  if (!d) return;
+  const f = v => (v && v !== 'N/A') ? v : '';
+  const meta = [f(d.Year), f(d.Rated), f(d.Runtime)].filter(Boolean).join(' · ');
+  if (meta) document.getElementById('picker-meta').textContent = meta;
+  if (f(d.Genre)) document.getElementById('picker-genre').textContent = f(d.Genre);
+  if (f(d.imdbRating)) document.getElementById('picker-rating').textContent = '★ ' + d.imdbRating;
+  if (f(d.Plot)) document.getElementById('picker-plot').textContent = f(d.Plot);
+  if (f(d.Poster)) {
+    const ph = document.querySelector('.picker-poster-ph');
+    if (ph) {
+      const img = document.createElement('img');
+      img.className = 'picker-poster';
+      img.src = d.Poster;
+      img.alt = '';
+      ph.replaceWith(img);
+    }
+  }
+}
+
+function closeModal() { document.getElementById('modal-container').innerHTML = ''; }
+
+// Add / Edit form
+function openAddModal() { showForm(null); }
+function openEditModal(enc) { showForm(decItem(enc)); }
+function showForm(item) {
+  const isEdit = !!item;
+  const v = (f, def='') => item ? (item[f] ?? def) : def;
+  const sel = (f, val) => v(f) === val ? 'selected' : '';
+  const chk = f => v(f, false) ? 'checked' : '';
+  document.getElementById('modal-container').innerHTML = `
+    <div class="modal-overlay" onclick="if(event.target===this)closeModal()">
+      <div class="modal">
+        <button class="modal-close-btn" onclick="closeModal()">&times;</button>
+        <p class="form-modal-title">${isEdit ? 'Edit title' : 'Add a title'}</p>
+        <div class="form-group">
+          <label>Title</label>
+          <input id="f-title" type="text" value="${v('t').replace(/"/g,'&quot;')}" placeholder="Movie or show title">
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Type</label>
+            <select id="f-cat">
+              <option value="movie" ${sel('cat','movie')}>Movie</option>
+              <option value="series" ${sel('cat','series')}>Series</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Audience</label>
+            <select id="f-aud">
+              <option value="family" ${sel('aud','family')}>Family</option>
+              <option value="adults" ${sel('aud','adults')}>Adults</option>
+              <option value="horror" ${sel('aud','horror')}>Horror</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Note <span style="font-weight:400;color:var(--text-dim)">(optional)</span></label>
+          <input id="f-note" type="text" value="${v('note').replace(/"/g,'&quot;')}" placeholder="e.g. Netflix, for Jen, 1988...">
+        </div>
+        <div class="form-group">
+          <label>OMDB search title <span style="font-weight:400;color:var(--text-dim)">(only if poster is missing)</span></label>
+          <input id="f-omdb" type="text" value="${v('omdb').replace(/"/g,'&quot;')}" placeholder="e.g. Adventures of Buckaroo Banzai">
+          <div style="font-size:11px;color:var(--text-dim);margin-top:4px">Leave blank to use the display title. Try the exact title from IMDb if the poster isn't loading.</div>
+        </div>
+        <div class="form-group">
+          <label>Options</label>
+          <label class="form-check"><input type="checkbox" id="f-seen" ${chk('seen')}> Already seen</label>
+          <label class="form-check"><input type="checkbox" id="f-holiday" ${chk('isHoliday')}> Holiday film</label>
+        </div>
+        <div class="modal-actions">
+          <button class="btn btn-primary" onclick="saveForm('${isEdit ? item.id : ''}')">${isEdit ? 'Save changes' : 'Add to list'}</button>
+          <button class="btn" onclick="closeModal()">Cancel</button>
+        </div>
+      </div>
+    </div>`;
+  setTimeout(() => document.getElementById('f-title')?.focus(), 50);
+}
+
+function saveForm(editId) {
+  const title = document.getElementById('f-title').value.trim();
+  if (!title) { alert('Please enter a title.'); return; }
+  const omdbOverride = document.getElementById('f-omdb').value.trim();
+  const changes = {
+    t: title,
+    cat: document.getElementById('f-cat').value,
+    aud: document.getElementById('f-aud').value,
+    note: document.getElementById('f-note').value.trim(),
+    seen: document.getElementById('f-seen').checked,
+    isHoliday: document.getElementById('f-holiday').checked,
+    omdb: omdbOverride || undefined,
+  };
+  // Remove omdb key entirely if blank so base list value isn't shadowed
+  if (!omdbOverride) delete changes.omdb;
+
+  // Bust OMDB cache for old and new search titles so card re-fetches
+  if (editId) {
+    const existing = getList().find(i => i.id === editId);
+    if (existing) {
+      delete omdbCache[(existing.omdb || existing.t).toLowerCase()];
+    }
+  }
+  delete omdbCache[(omdbOverride || title).toLowerCase()];
+
+  if (editId) {
+    if (editId.startsWith('u_')) updateAddition(editId, changes);
+    else applyOverride(editId, changes);
+  } else {
+    applyAddition({id:'u_'+Date.now(), ...changes});
+  }
+  closeModal(); render();
+}
+
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+// render() is called after sign-in via afterSignIn()
+</script>
+</body>
+</html>
