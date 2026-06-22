@@ -993,17 +993,62 @@ window.addEventListener('load', () => {
 });
 
 // OMDB
+// OMDB cache — two layers:
+// 1. omdbCache: in-memory for this session (fast)
+// 2. localStorage 'wl_omdb_cache': persists across sessions (saves API quota)
+const OMDB_CACHE_KEY = 'wl_omdb_cache';
+const OMDB_CACHE_TTL = 30 * 24 * 60 * 60 * 1000; // 30 days in ms
+
+function loadOmdbCache() {
+  try {
+    const raw = localStorage.getItem(OMDB_CACHE_KEY);
+    if (!raw) return {};
+    return JSON.parse(raw);
+  } catch(e) { return {}; }
+}
+function saveOmdbCache(cache) {
+  try { localStorage.setItem(OMDB_CACHE_KEY, JSON.stringify(cache)); } catch(e) {
+    // localStorage full — clear oldest half and retry
+    try {
+      const entries = Object.entries(cache).sort((a,b) => (a[1].ts||0)-(b[1].ts||0));
+      const trimmed = Object.fromEntries(entries.slice(Math.floor(entries.length/2)));
+      localStorage.setItem(OMDB_CACHE_KEY, JSON.stringify(trimmed));
+    } catch(e2) {}
+  }
+}
+
 async function fetchOMDB(title, imdbId) {
   if (!OMDB_KEY) return null;
   const cacheKey = (imdbId || title).toLowerCase();
+
+  // 1. Check in-memory cache first
   if (omdbCache[cacheKey] !== undefined) return omdbCache[cacheKey];
+
+  // 2. Check localStorage cache
+  const persisted = loadOmdbCache();
+  const entry = persisted[cacheKey];
+  if (entry && entry.ts && (Date.now() - entry.ts) < OMDB_CACHE_TTL) {
+    omdbCache[cacheKey] = entry.data; // warm in-memory cache
+    return entry.data;
+  }
+
+  // 3. Fetch from OMDB API
   try {
     const param = imdbId ? `i=${encodeURIComponent(imdbId)}` : `t=${encodeURIComponent(title)}`;
     const r = await fetch(`https://www.omdbapi.com/?${param}&apikey=${OMDB_KEY}`);
     const d = await r.json();
-    omdbCache[cacheKey] = d.Response === 'True' ? d : null;
-  } catch(e) { omdbCache[cacheKey] = null; }
-  return omdbCache[cacheKey];
+    const result = d.Response === 'True' ? d : null;
+    omdbCache[cacheKey] = result;
+    // Only persist successful results — don't cache failures permanently
+    if (result) {
+      persisted[cacheKey] = { data: result, ts: Date.now() };
+      saveOmdbCache(persisted);
+    }
+    return result;
+  } catch(e) {
+    omdbCache[cacheKey] = null;
+    return null;
+  }
 }
 
 // Multi-select filter state — Sets of active values
@@ -1476,14 +1521,22 @@ function saveForm(editId) {
   if (!omdbOverride) delete changes.omdb;
   if (!imdbId) delete changes.imdbId;
 
-  // Bust OMDB cache for old and new search terms so card re-fetches
+  // Bust both in-memory and localStorage OMDB cache for this title
   if (editId) {
     const existing = getList().find(i => i.id === editId);
     if (existing) {
-      delete omdbCache[(existing.imdbId || existing.omdb || existing.t).toLowerCase()];
+      const oldKey = (existing.imdbId || existing.omdb || existing.t).toLowerCase();
+      delete omdbCache[oldKey];
+      const persisted = loadOmdbCache();
+      delete persisted[oldKey];
+      saveOmdbCache(persisted);
     }
   }
-  delete omdbCache[(imdbId || omdbOverride || title).toLowerCase()];
+  const newKey = (imdbId || omdbOverride || title).toLowerCase();
+  delete omdbCache[newKey];
+  const persisted = loadOmdbCache();
+  delete persisted[newKey];
+  saveOmdbCache(persisted);
 
   if (editId) {
     if (editId.startsWith('u_')) updateAddition(editId, changes);
