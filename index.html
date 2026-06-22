@@ -683,20 +683,24 @@ async function afterSignIn() {
   showAuthUI(true);
   setSyncStatus('syncing', 'Loading...');
   try {
+    // Always try cached sheet ID first to avoid Drive API 403s on expired tokens
     spreadsheetId = localStorage.getItem('wl_sheet_id') || null;
     if (spreadsheetId) {
       const ok = await sheetExists(spreadsheetId);
-      if (!ok) spreadsheetId = null;
+      if (!ok) {
+        console.log('[Watchlist] Cached sheet ID invalid, searching Drive...');
+        spreadsheetId = null;
+      }
     }
     if (!spreadsheetId) {
       spreadsheetId = await findOrCreateSheet();
       localStorage.setItem('wl_sheet_id', spreadsheetId);
     }
+    console.log('[Watchlist] Using spreadsheetId:', spreadsheetId);
     await loadFromSheet();
     setSyncStatus('synced', 'Synced');
   } catch(e) {
-    console.error('Sheet load failed, falling back to localStorage:', e);
-    // Fall back to whatever is in localStorage
+    console.error('[Watchlist] Sheet load failed:', e);
     try { _state.overrides = JSON.parse(localStorage.getItem('wl_overrides') || '{}'); } catch(_) {}
     try { _state.additions = JSON.parse(localStorage.getItem('wl_additions') || '[]'); } catch(_) {}
     OMDB_KEY = localStorage.getItem('wl_omdb_key') || null;
@@ -707,7 +711,6 @@ async function afterSignIn() {
     promptForOMDBKey();
   } else {
     render();
-    // Re-run observer in case any cards rendered before the key arrived
     setTimeout(startObserver, 100);
   }
 }
@@ -922,13 +925,18 @@ async function pushToSheet() {
 }
 
 async function saveOMDBKeyToSheet() {
-  if (!spreadsheetId || !accessToken || !OMDB_KEY) return;
+  console.log('[Watchlist] saveOMDBKeyToSheet called, spreadsheetId:', spreadsheetId, 'hasToken:', !!accessToken, 'key:', OMDB_KEY ? 'set' : 'missing');
+  if (!spreadsheetId || !accessToken || !OMDB_KEY) {
+    console.error('[Watchlist] Cannot save key — missing spreadsheetId, token, or key');
+    return;
+  }
   try {
-    await sheetsRequest('PUT', `/${spreadsheetId}/values/Settings!B1?valueInputOption=RAW`, {
+    const result = await sheetsRequest('PUT', `/${spreadsheetId}/values/Settings!B1?valueInputOption=RAW`, {
       values: [[OMDB_KEY]],
     });
+    console.log('[Watchlist] Key saved to Settings!B1 successfully:', JSON.stringify(result));
   } catch(e) {
-    console.error('Failed to save OMDB key:', e);
+    console.error('[Watchlist] Failed to save OMDB key to sheet:', e);
   }
 }
 
@@ -984,10 +992,10 @@ window.addEventListener('load', () => {
   if (saved) {
     accessToken = saved;
     afterSignIn().catch((e) => {
-      console.log('[Watchlist] Saved token failed, clearing:', e.message);
+      console.log('[Watchlist] Saved token failed, clearing token only:', e.message);
       accessToken = null;
       localStorage.removeItem('wl_token');
-      localStorage.removeItem('wl_sheet_id');
+      // Do NOT clear wl_sheet_id — it's still valid, just the token expired
       showAuthUI(false);
     });
   }
