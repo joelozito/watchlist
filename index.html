@@ -682,19 +682,27 @@ function signOut() {
 async function afterSignIn() {
   showAuthUI(true);
   setSyncStatus('syncing', 'Loading...');
-  spreadsheetId = localStorage.getItem('wl_sheet_id') || null;
-  if (spreadsheetId) {
-    const ok = await sheetExists(spreadsheetId);
-    if (!ok) spreadsheetId = null;
+  try {
+    spreadsheetId = localStorage.getItem('wl_sheet_id') || null;
+    if (spreadsheetId) {
+      const ok = await sheetExists(spreadsheetId);
+      if (!ok) spreadsheetId = null;
+    }
+    if (!spreadsheetId) {
+      spreadsheetId = await findOrCreateSheet();
+      localStorage.setItem('wl_sheet_id', spreadsheetId);
+    }
+    await loadFromSheet();
+    setSyncStatus('synced', 'Synced');
+  } catch(e) {
+    console.error('Sheet load failed, falling back to localStorage:', e);
+    // Fall back to whatever is in localStorage
+    try { _state.overrides = JSON.parse(localStorage.getItem('wl_overrides') || '{}'); } catch(_) {}
+    try { _state.additions = JSON.parse(localStorage.getItem('wl_additions') || '[]'); } catch(_) {}
+    OMDB_KEY = localStorage.getItem('wl_omdb_key') || null;
+    setSyncStatus('error', 'Load failed — using local data');
   }
-  if (!spreadsheetId) {
-    spreadsheetId = await findOrCreateSheet();
-    localStorage.setItem('wl_sheet_id', spreadsheetId);
-  }
-  await loadFromSheet();
-  setSyncStatus('synced', 'Synced');
 
-  // If no OMDB key yet, prompt before rendering
   if (!OMDB_KEY) {
     promptForOMDBKey();
   } else {
@@ -805,48 +813,53 @@ async function findOrCreateSheet() {
   const data = await res.json();
   if (data.files && data.files.length > 0) return data.files[0].id;
 
-  // Create new spreadsheet
+  // Create new spreadsheet with header + empty data row already in place
   const created = await sheetsRequest('POST', '', {
     properties: { title: SHEET_NAME },
     sheets: [{ properties: { title: 'Data' } }],
   });
   const sid = created.spreadsheetId;
-
-  // Write header row
-  await sheetsRequest('PUT', `/${sid}/values/Data!A1:F1?valueInputOption=RAW`, {
-    values: [['id', 'overrides_json', 'additions_json', 'last_updated', 'version', 'omdb_key']],
-  });
-  // Write initial empty data row
-  await sheetsRequest('PUT', `/${sid}/values/Data!A2:F2?valueInputOption=RAW`, {
-    values: [['1', '{}', '[]', new Date().toISOString(), '1', '']],
+  await sheetsRequest('PUT', `/${sid}/values/Data!A1:F2?valueInputOption=RAW`, {
+    values: [
+      ['id', 'overrides_json', 'additions_json', 'last_updated', 'version', 'omdb_key'],
+      ['1', '{}', '[]', new Date().toISOString(), '1', ''],
+    ],
   });
   return sid;
 }
 
 async function loadFromSheet() {
-  try {
-    const data = await sheetsRequest('GET', `/${spreadsheetId}/values/Data!A2:F2`);
-    const row = data.values && data.values[0];
-    if (row && row[1] !== undefined) {
-      _state = {
-        overrides: JSON.parse(row[1] || '{}'),
-        additions: JSON.parse(row[2] || '[]'),
-      };
-      localStorage.setItem('wl_overrides', row[1]);
-      localStorage.setItem('wl_additions', row[2]);
-      // Load OMDB key from col F (index 5)
-      if (row[5]) {
-        OMDB_KEY = row[5];
-        localStorage.setItem('wl_omdb_key', OMDB_KEY);
-      }
-    }
-  } catch(e) {
-    _state = {
-      overrides: JSON.parse(localStorage.getItem('wl_overrides') || '{}'),
-      additions: JSON.parse(localStorage.getItem('wl_additions') || '[]'),
-    };
-    OMDB_KEY = localStorage.getItem('wl_omdb_key') || null;
+  const data = await sheetsRequest('GET', `/${spreadsheetId}/values/Data!A1:F3`);
+  const rows = data.values || [];
+
+  // rows[0] = header row, rows[1] = data row
+  const dataRow = rows[1];
+
+  if (dataRow) {
+    try { _state.overrides = JSON.parse(dataRow[1] || '{}'); } catch(e) {}
+    try { _state.additions = JSON.parse(dataRow[2] || '[]'); } catch(e) {}
+    // Column F (index 5) holds the OMDB key — may be absent on older sheets
+    const sheetKey = dataRow[5] || '';
+    if (sheetKey) OMDB_KEY = sheetKey;
+  } else {
+    // Sheet exists but has no data row — write one now
+    await sheetsRequest('PUT', `/${spreadsheetId}/values/Data!A2:F2?valueInputOption=RAW`, {
+      values: [['1', '{}', '[]', new Date().toISOString(), '1', '']],
+    });
   }
+
+  // If the header row doesn't have column F yet, add it
+  const headerRow = rows[0] || [];
+  if (!headerRow[5]) {
+    await sheetsRequest('PUT', `/${spreadsheetId}/values/Data!F1?valueInputOption=RAW`, {
+      values: [['omdb_key']],
+    });
+  }
+
+  // Cache to localStorage as backup
+  localStorage.setItem('wl_overrides', JSON.stringify(_state.overrides));
+  localStorage.setItem('wl_additions', JSON.stringify(_state.additions));
+  if (OMDB_KEY) localStorage.setItem('wl_omdb_key', OMDB_KEY);
 }
 
 async function pushToSheet() {
@@ -865,7 +878,8 @@ async function pushToSheet() {
     });
     setSyncStatus('synced', 'Synced');
   } catch(e) {
-    setSyncStatus('error', 'Sync failed');
+    setSyncStatus('error', 'Sync error — check console');
+    console.error('Sheet write failed:', e);
   }
 }
 
