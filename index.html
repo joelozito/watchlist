@@ -707,6 +707,8 @@ async function afterSignIn() {
     promptForOMDBKey();
   } else {
     render();
+    // Re-run observer in case any cards rendered before the key arrived
+    setTimeout(startObserver, 100);
   }
 }
 
@@ -851,8 +853,13 @@ async function loadFromSheet() {
 
   // Read OMDB key from its own cell — immune to sparse row truncation
   if (keyRow && keyRow[0]) {
-    OMDB_KEY = keyRow[0];
-    localStorage.setItem('wl_omdb_key', OMDB_KEY);
+    const newKey = keyRow[0];
+    if (newKey !== OMDB_KEY) {
+      OMDB_KEY = newKey;
+      localStorage.setItem('wl_omdb_key', OMDB_KEY);
+      // Clear any null-cached results from before the key was known
+      Object.keys(omdbCache).forEach(k => { if (omdbCache[k] === null) delete omdbCache[k]; });
+    }
   }
 
   // Ensure header row has the omdb_key column label
@@ -1070,6 +1077,15 @@ function startObserver() {
 }
 
 async function enrichCard(card) {
+  // If key not loaded yet, wait up to 5 seconds for it
+  if (!OMDB_KEY) {
+    let waited = 0;
+    while (!OMDB_KEY && waited < 5000) {
+      await new Promise(r => setTimeout(r, 200));
+      waited += 200;
+    }
+    if (!OMDB_KEY) return; // still no key after waiting, give up
+  }
   const title = card.dataset.enrich;
   const omdbTitle = card.dataset.omdb || title;
   const itemId = card.dataset.id;
