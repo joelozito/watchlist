@@ -863,6 +863,32 @@ async function loadFromSheet() {
   const keyCell = ((keyResp.values || [])[0] || [])[0] || '';
   console.log('[Watchlist] Settings!B1 raw response:', JSON.stringify(keyResp));
   console.log('[Watchlist] keyCell value:', JSON.stringify(keyCell));
+
+  if (keyCell) {
+    OMDB_KEY = keyCell;
+    localStorage.setItem('wl_omdb_key', OMDB_KEY);
+    Object.keys(omdbCache).forEach(k => { if (omdbCache[k] === null) delete omdbCache[k]; });
+  } else {
+    // Key not in Settings tab yet — check old Data!F2 location for migration
+    try {
+      const oldKeyResp = await sheetsRequest('GET', `/${spreadsheetId}/values/Data!F2`);
+      const oldKey = ((oldKeyResp.values || [])[0] || [])[0] || '';
+      console.log('[Watchlist] Old Data!F2 key:', JSON.stringify(oldKey));
+      if (oldKey) {
+        OMDB_KEY = oldKey;
+        localStorage.setItem('wl_omdb_key', OMDB_KEY);
+        // Migrate to Settings!B1
+        await sheetsRequest('PUT', `/${spreadsheetId}/values/Settings!B1?valueInputOption=RAW`, {
+          values: [[OMDB_KEY]],
+        });
+        console.log('[Watchlist] Migrated key from Data!F2 to Settings!B1');
+        Object.keys(omdbCache).forEach(k => { if (omdbCache[k] === null) delete omdbCache[k]; });
+      }
+    } catch(e) {
+      console.log('[Watchlist] No old key found in Data!F2:', e.message);
+    }
+  }
+
   if (dataRow) {
     try { _state.overrides = JSON.parse(dataRow[1] || '{}'); } catch(e) {}
     try { _state.additions = JSON.parse(dataRow[2] || '[]'); } catch(e) {}
@@ -870,11 +896,6 @@ async function loadFromSheet() {
     await sheetsRequest('PUT', `/${spreadsheetId}/values/Data!A2:E2?valueInputOption=RAW`, {
       values: [['1', '{}', '[]', new Date().toISOString(), '1']],
     });
-  }
-  if (keyCell) {
-    OMDB_KEY = keyCell;
-    localStorage.setItem('wl_omdb_key', OMDB_KEY);
-    Object.keys(omdbCache).forEach(k => { if (omdbCache[k] === null) delete omdbCache[k]; });
   }
   localStorage.setItem('wl_overrides', JSON.stringify(_state.overrides));
   localStorage.setItem('wl_additions', JSON.stringify(_state.additions));
@@ -962,10 +983,11 @@ window.addEventListener('load', () => {
   const saved = localStorage.getItem('wl_token');
   if (saved) {
     accessToken = saved;
-    afterSignIn().catch(() => {
-      // Token expired — show sign-in
+    afterSignIn().catch((e) => {
+      console.log('[Watchlist] Saved token failed, clearing:', e.message);
       accessToken = null;
       localStorage.removeItem('wl_token');
+      localStorage.removeItem('wl_sheet_id');
       showAuthUI(false);
     });
   }
