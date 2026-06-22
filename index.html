@@ -642,8 +642,9 @@ const BASE_LIST = [
 
 // ── Google Sheets Sync ──────────────────────────────────────────────────────
 const CLIENT_ID = '650305058013-1ip2vqpnj5g0il91iunqt3lgapqlsfng.apps.googleusercontent.com';
-const SCOPES = 'https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.file';
+const SCOPES = 'https://www.googleapis.com/auth/spreadsheets';
 const SHEET_NAME = 'Family Watchlist';
+const HARDCODED_SHEET_ID = '13vfJiboYT5-dqhMYmqeG106MqI0iWZF-xmQ8Y8EjY84';
 
 let accessToken = null;
 let spreadsheetId = null;
@@ -683,19 +684,9 @@ async function afterSignIn() {
   showAuthUI(true);
   setSyncStatus('syncing', 'Loading...');
   try {
-    // Always try cached sheet ID first to avoid Drive API 403s on expired tokens
-    spreadsheetId = localStorage.getItem('wl_sheet_id') || null;
-    if (spreadsheetId) {
-      const ok = await sheetExists(spreadsheetId);
-      if (!ok) {
-        console.log('[Watchlist] Cached sheet ID invalid, searching Drive...');
-        spreadsheetId = null;
-      }
-    }
-    if (!spreadsheetId) {
-      spreadsheetId = await findOrCreateSheet();
-      localStorage.setItem('wl_sheet_id', spreadsheetId);
-    }
+    // Use hardcoded sheet ID — no Drive search needed, no 403 risk
+    spreadsheetId = HARDCODED_SHEET_ID;
+    localStorage.setItem('wl_sheet_id', spreadsheetId);
     console.log('[Watchlist] Using spreadsheetId:', spreadsheetId);
     await loadFromSheet();
     setSyncStatus('synced', 'Synced');
