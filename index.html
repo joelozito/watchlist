@@ -839,14 +839,17 @@ async function findOrCreateSheet() {
 
 async function ensureSettingsTab(sid) {
   try {
-    await sheetsRequest('GET', `/${sid}/values/Settings!A1`);
+    const r = await sheetsRequest('GET', `/${sid}/values/Settings!A1`);
+    console.log('[Watchlist] Settings tab exists, A1:', JSON.stringify(r.values));
   } catch(e) {
+    console.log('[Watchlist] Settings tab missing, creating it...');
     await sheetsRequest('POST', `/${sid}:batchUpdate`, {
       requests: [{ addSheet: { properties: { title: 'Settings' } } }],
     });
     await sheetsRequest('PUT', `/${sid}/values/Settings!A1:B1?valueInputOption=RAW`, {
       values: [['omdb_key', '']],
     });
+    console.log('[Watchlist] Settings tab created.');
   }
 }
 
@@ -858,6 +861,8 @@ async function loadFromSheet() {
   ]);
   const dataRow = (stateResp.values || [])[0];
   const keyCell = ((keyResp.values || [])[0] || [])[0] || '';
+  console.log('[Watchlist] Settings!B1 raw response:', JSON.stringify(keyResp));
+  console.log('[Watchlist] keyCell value:', JSON.stringify(keyCell));
   if (dataRow) {
     try { _state.overrides = JSON.parse(dataRow[1] || '{}'); } catch(e) {}
     try { _state.additions = JSON.parse(dataRow[2] || '[]'); } catch(e) {}
