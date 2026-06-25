@@ -1136,7 +1136,10 @@ const SEC = {
   'horror-movie':'Horror','horror-series':'Horror series',
   'holiday-movie':'Holiday','seen-movie':'Movies seen','seen-series':'Series seen'
 };
-function encItem(item) { return encodeURIComponent(JSON.stringify(item)); }
+function sortKey(title) {
+  return title.replace(/^(the|a|an)\s+/i, '').toLowerCase();
+}
+
 function decItem(s) { return JSON.parse(decodeURIComponent(s)); }
 
 // Store items by ID for safe onclick lookup — avoids quote escaping issues
@@ -1284,7 +1287,7 @@ function render() {
   let html = '';
   order.forEach(key => {
     if (!buckets[key]?.length) return;
-    const items = [...buckets[key]].sort((a,b) => a.t.localeCompare(b.t));
+    const items = [...buckets[key]].sort((a,b) => sortKey(a.t).localeCompare(sortKey(b.t)));
     html += `<div class="section-head">${SEC[key]||key} (${items.length})</div><div class="grid">`;
     items.forEach(item => {
       const omdbAttr = item.omdb ? `data-omdb="${item.omdb}"` : '';
